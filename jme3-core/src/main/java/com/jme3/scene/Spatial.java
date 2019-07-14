@@ -70,7 +70,10 @@ import java.util.logging.Logger;
  */
 public abstract class Spatial implements Savable, Cloneable, Collidable, CloneableSmartAsset, JmeCloneable, HasLocalTransform {
 
+    public static boolean DEBUG_MODE = true;
+
     private static final Logger logger = Logger.getLogger(Spatial.class.getName());
+    private Exception presumptiveLastChangeException;
 
     /**
      * Specifies how frustum culling should be handled by
@@ -211,6 +214,7 @@ public abstract class Spatial implements Savable, Cloneable, Collidable, Cloneab
         localOverrides = new SafeArrayList<>(MatParamOverride.class);
         worldOverrides = new SafeArrayList<>(MatParamOverride.class);
         refreshFlags |= RF_BOUND;
+        onSetRefreshFlag();
     }
 
     public void setKey(AssetKey key) {
@@ -268,6 +272,16 @@ public abstract class Spatial implements Savable, Cloneable, Collidable, Cloneab
         this.requiresUpdates = f;
     }
 
+    protected void onSetRefreshFlag(){
+        if(DEBUG_MODE) {
+            try {
+                throw new RuntimeException("State changed at illegal point");
+            } catch (RuntimeException e) {
+                presumptiveLastChangeException = e;
+            }
+        }
+    }
+
     /**
      * Indicate that the transform of this spatial has changed and that
      * a refresh is required.
@@ -279,6 +293,7 @@ public abstract class Spatial implements Savable, Cloneable, Collidable, Cloneab
 
     protected void setLightListRefresh() {
         refreshFlags |= RF_LIGHTLIST;
+        onSetRefreshFlag();
         // Make sure next updateGeometricState() visits this branch
         // to update lights.
         Spatial p = parent;
@@ -289,12 +304,14 @@ public abstract class Spatial implements Savable, Cloneable, Collidable, Cloneab
                 return;
             }
             p.refreshFlags |= RF_CHILD_LIGHTLIST;
+            p.onSetRefreshFlag();
             p = p.parent;
         }
     }
 
     protected void setMatParamOverrideRefresh() {
         refreshFlags |= RF_MATPARAM_OVERRIDE;
+        onSetRefreshFlag();
         Spatial p = parent;
         while (p != null) {
             if ((p.refreshFlags & RF_MATPARAM_OVERRIDE) != 0) {
@@ -302,6 +319,7 @@ public abstract class Spatial implements Savable, Cloneable, Collidable, Cloneab
             }
 
             p.refreshFlags |= RF_MATPARAM_OVERRIDE;
+            p.onSetRefreshFlag();
             p = p.parent;
         }
     }
@@ -312,7 +330,7 @@ public abstract class Spatial implements Savable, Cloneable, Collidable, Cloneab
      */
     protected void setBoundRefresh() {
         refreshFlags |= RF_BOUND;
-
+        onSetRefreshFlag();
         Spatial p = parent;
         while (p != null) {
             if ((p.refreshFlags & RF_BOUND) != 0) {
@@ -320,6 +338,7 @@ public abstract class Spatial implements Savable, Cloneable, Collidable, Cloneab
             }
 
             p.refreshFlags |= RF_BOUND;
+            p.onSetRefreshFlag();
             p = p.parent;
         }
     }
@@ -355,11 +374,18 @@ public abstract class Spatial implements Savable, Cloneable, Collidable, Cloneab
      */
     public boolean checkCulling(Camera cam) {
         if (refreshFlags != 0) {
+            if(presumptiveLastChangeException!=null){
+                presumptiveLastChangeException.printStackTrace(System.out); //use real logger
+            }
+
             throw new IllegalStateException("Scene graph is not properly updated for rendering.\n"
                     + "State was changed after rootNode.updateGeometricState() call. \n"
                     + "Make sure you do not modify the scene from another thread!\n"
-                    + "Problem spatial name: " + getName());
+                    + "Problem spatial name: " + getName()
+                    + (DEBUG_MODE ? "See logs for call that caused illegal state" : "Can TO_BE_DECIDED to activate debug mode")
+            );
         }
+        presumptiveLastChangeException = null;
 
         CullHint cm = getCullHint();
         assert cm != CullHint.Inherit;

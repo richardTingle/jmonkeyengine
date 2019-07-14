@@ -66,6 +66,7 @@ public class SimpleBatchNode extends BatchNode {
     @Override
     protected void setTransformRefresh() {
         refreshFlags |= RF_TRANSFORM;
+        onSetRefreshFlag();
         setBoundRefresh();
         for (Batch batch : batches.getArray()) {
             batch.geometry.setTransformRefresh();
