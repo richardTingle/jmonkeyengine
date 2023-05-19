@@ -10,16 +10,10 @@ import com.jme3.system.lwjgl.LwjglWindowXr;
 
 public class XrHmd
 {
-	public static final float DEFAULT_X_DIST = 0.4f;
-	public static final float DEFAULT_X_ROT = 0.028f;
-	Quaternion tmpQ = new Quaternion();
-	float[] tmpArr = new float[3];
-	Quaternion tmpQdistRotL = new Quaternion().fromAngles(0, -DEFAULT_X_ROT, 0);
-	Quaternion tmpQdistRotR = new Quaternion().fromAngles(0, DEFAULT_X_ROT, 0);
 	SimpleApplication app;
 	Eye leftEye;
 	Eye rightEye;
-	ArrayList<XrListener.OrientationListener> hmdListeners = new ArrayList<XrListener.OrientationListener>();
+	ArrayList<XrListener.OrientationListener> hmdListeners = new ArrayList<>();
 	ArrayList<XrListener.ButtonPressedListener> contr1Listeners = new ArrayList<XrListener.ButtonPressedListener>();
 	ArrayList<XrListener.ButtonPressedListener> contr2Listeners = new ArrayList<XrListener.ButtonPressedListener>();
 	
@@ -28,20 +22,6 @@ public class XrHmd
 		this.app = app;
 		leftEye = new Eye(app);
 		rightEye = new Eye(app);
-		setXDistance(DEFAULT_X_DIST);
-		hmdListeners.add((p,r) -> doMoveRotate(p,r));
-	}
-	
-	private void doMoveRotate(Vector3f p, Quaternion r)
-	{
-		tmpQ.set(r);
-		tmpQ.inverseLocal();
-		tmpQ.set(tmpQ.getX(), tmpQ.getY(), -tmpQ.getZ(), tmpQ.getW());
-		leftEye.rotateAbs(tmpQ.multLocal(tmpQdistRotL));
-		tmpQ.set(r);
-		tmpQ.inverseLocal();
-		tmpQ.set(tmpQ.getX(), tmpQ.getY(), -tmpQ.getZ(), tmpQ.getW());
-		rightEye.rotateAbs(tmpQ.multLocal(tmpQdistRotR));
 	}
 
 	public Eye getLeftEye() { return leftEye; }
@@ -71,24 +51,4 @@ public class XrHmd
 		((LwjglWindowXr)app.getContext()).getXr().setHmd(xrHmd);
 		return xrHmd;
 	}
-
-    /** Gets the distance between the eyes. Default is DEFAULT_X_DIST */
-    public float getXDistance() { return rightEye.getPosX() * 2f; }
-    
-    /** Sets the distance between the eyes. Default is DEFAULT_X_DIST */
-    public void setXDistance(float xDist)
-    {
-    	rightEye.setPosX(xDist / 2f);
-    	leftEye.setPosX(xDist / -2f);
-    }
-    
-    /** Gets the rotation angle between the eyes. Default is DEFAULT_X_ROT */
-    public float getXRotation() { return tmpQdistRotR.toAngles(tmpArr)[1]; }
-    
-    /** Sets the rotation angle between the eyes. Default is DEFAULT_X_ROT */
-    public void setXRotation(float xRot)
-    {
-    	tmpQdistRotR.fromAngles(0, xRot, 0);
-    	tmpQdistRotL.fromAngles(0, xRot, 0);
-    }
 }

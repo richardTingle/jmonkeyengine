@@ -5,7 +5,7 @@
  */
 package com.jme3.system.lwjgl.openxr;
 
-import org.joml.*;
+import com.jme3.input.xr.Eye;
 import org.lwjgl.*;
 import org.lwjgl.opengl.*;
 import org.lwjgl.openxr.*;
@@ -30,7 +30,7 @@ import static org.lwjgl.system.MemoryStack.*;
 import static org.lwjgl.system.MemoryUtil.*;
 
 public class HelloOpenXRGL {
-	
+
     private static final Logger logger = Logger.getLogger(HelloOpenXRGL.class.getName());
     
     long window;
@@ -79,8 +79,8 @@ public class HelloOpenXRGL {
     //JME3: Split function main(args) to public functions constr+init+render+destroy
     public HelloOpenXRGL(AppSettings appSettings)
     {
-    	this.appSettings = appSettings;
-    	createOpenXRInstance();
+        this.appSettings = appSettings;
+        createOpenXRInstance();
         initializeOpenXRSystem();
         initializeAndBindOpenGL();
         createXRReferenceSpace();
@@ -93,17 +93,15 @@ public class HelloOpenXRGL {
     /** Returns true for continue */
     public boolean renderFrame()
     {
-    	if (pollEvents()) return false;
-    	if (glfwWindowShouldClose(window)) return false;
+        if (pollEvents()) return false;
+        if (glfwWindowShouldClose(window)) return false;
         if (sessionRunning)
         {
-        	try {
+            try {
               renderFrameOpenXR();
-        	}
-        	catch (IllegalStateException e)
-        	{
-        		return false;
-        	}
+            } catch (IllegalStateException e){
+                return false;
+            }
         }
         else
         {
@@ -114,8 +112,8 @@ public class HelloOpenXRGL {
             }
             catch (InterruptedException e)
             {
-            	e.printStackTrace();
-            	return false;
+                e.printStackTrace();
+                return false;
             }
         }
         return true;
@@ -123,7 +121,7 @@ public class HelloOpenXRGL {
     
     public void destroy()
     {
-    	glFinish();
+        glFinish();
 
         // Destroy OpenXR
         eventDataBuffer.free();
@@ -161,20 +159,19 @@ public class HelloOpenXRGL {
     //JME3: New public functions for positions/orientations
     public void getViewPosition(com.jme3.math.Vector3f store)
     {
-    	store.set(viewPos);
+        store.set(viewPos);
     }
     public void getViewRotation(com.jme3.math.Quaternion store)
     {
-    	store.set(viewRot);
+        store.set(viewRot);
     }
     public void getRenderSize(com.jme3.math.Vector2f store)
     {
-    	if (swapchains == null || swapchains.length == 0 || swapchains[0] == null)
-    	{
-    		logger.warning("XR is not ready. Returning default renderSize of 1512x1680");
-    		store.set(1512, 1680);
-    	}
-    	store.set(swapchains[0].width,swapchains[0].height);
+        if (swapchains == null || swapchains.length == 0 || swapchains[0] == null){
+            logger.warning("XR is not ready. Returning default renderSize of 1512x1680");
+            store.set(1512, 1680);
+        }
+        store.set(swapchains[0].width,swapchains[0].height);
     }
     public long getWindow() { return window; }
     public void setHmd(XrHmd xrHmd) { this.xrHmd = xrHmd; }
@@ -531,9 +528,9 @@ public class HelloOpenXRGL {
                         .mipCount(1);
 
                     System.out.printf("Headset Eye:%d has Width:%d Height:%d\n",
-                    		i,
-                    		viewConfig.recommendedImageRectWidth(),
-                    		viewConfig.recommendedImageRectHeight());
+                            i,
+                            viewConfig.recommendedImageRectWidth(),
+                            viewConfig.recommendedImageRectHeight());
                     appSettings.setWidth(viewConfig.recommendedImageRectWidth());
                     appSettings.setHeight(viewConfig.recommendedImageRectHeight());
                     PointerBuffer pp = stack.mallocPointer(1);
@@ -810,8 +807,6 @@ public class HelloOpenXRGL {
         return true;
     }
 
-    private static Matrix4f projectionMatrix = new Matrix4f(); //TODO: Do we need this?
-    private static Matrix4f viewMatrix       = new Matrix4f(); //TODO: Do we need this?
     private static com.jme3.math.Vector3f viewPos = new com.jme3.math.Vector3f();
     private static com.jme3.math.Quaternion viewRot = new com.jme3.math.Quaternion();
 
@@ -837,15 +832,19 @@ public class HelloOpenXRGL {
         XrPosef       pose        = layerView.pose();
         XrVector3f    pos         = pose.position$();
         XrQuaternionf orientation = pose.orientation();
-        XRHelper.applyProjectionToMatrix(projectionMatrix.identity(), layerView.fov(), 0.1f, 100f, false);
-        viewMatrix.translationRotateScaleInvert(
-            pos.x(), pos.y(), pos.z(),
-            orientation.x(), orientation.y(), orientation.z(), orientation.w(),
-            1, 1, 1
-        );
-        viewPos.set(pos.x(), pos.y(), pos.z());
-        viewRot.set(orientation.x(), orientation.y(), orientation.z(), orientation.w());
-        xrHmd.onUpdateHmdOrientation(viewPos, viewRot);
+
+        viewPos.set(pos.x(), pos.y(), -pos.z());
+        viewRot.set(orientation.x(), orientation.y(), -orientation.z(), orientation.w());
+
+        Eye eye = viewIndex == 0 ? xrHmd.getLeftEye() : xrHmd.getRightEye();
+
+        eye.setRotation(viewRot.inverse());
+        eye.setPosition(viewPos);
+
+        float foyY = -layerView.fov().angleLeft() + layerView.fov().angleRight();
+        float foyX = -layerView.fov().angleDown() + layerView.fov().angleUp();
+
+        eye.setFieldOfView(foyX,foyY);
 
         glDisable(GL_CULL_FACE); // Disable back-face culling so we can see the inside of the world-space cube and backside of the plane
 
