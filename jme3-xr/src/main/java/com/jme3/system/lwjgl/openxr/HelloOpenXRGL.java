@@ -793,7 +793,7 @@ public class HelloOpenXRGL {
                             .height(viewSwapchain.height)
                         )));
 
-            OpenGLRenderView(projectionLayerView, viewSwapchain.images.get(swapchainImageIndex), viewIndex);
+            openGLRenderView(projectionLayerView, viewSwapchain.images.get(swapchainImageIndex), viewIndex);
 
             check(xrReleaseSwapchainImage(
                 viewSwapchain.handle,
@@ -810,7 +810,7 @@ public class HelloOpenXRGL {
     private static com.jme3.math.Vector3f viewPos = new com.jme3.math.Vector3f();
     private static com.jme3.math.Quaternion viewRot = new com.jme3.math.Quaternion();
 
-    private void OpenGLRenderView(XrCompositionLayerProjectionView layerView, XrSwapchainImageOpenGLKHR swapchainImage, int viewIndex) {
+    private void openGLRenderView(XrCompositionLayerProjectionView layerView, XrSwapchainImageOpenGLKHR swapchainImage, int viewIndex) {
         glBindFramebuffer(GL_FRAMEBUFFER, swapchainFramebuffer);
 
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, swapchainImage.image(), 0);
