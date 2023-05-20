@@ -2,11 +2,13 @@ package com.jme3.input.xr;
 
 import java.util.ArrayList;
 
+import com.jme3.actions.ActionOpenXRState;
 import com.jme3.app.SimpleApplication;
 import com.jme3.math.Quaternion;
 import com.jme3.math.Vector3f;
 import com.jme3.system.AppSettings;
 import com.jme3.system.lwjgl.LwjglWindowXr;
+import com.jme3.system.lwjgl.openxr.HelloOpenXRGL;
 
 public class XrHmd
 {
@@ -14,8 +16,8 @@ public class XrHmd
 	Eye leftEye;
 	Eye rightEye;
 	ArrayList<XrListener.OrientationListener> hmdListeners = new ArrayList<>();
-	ArrayList<XrListener.ButtonPressedListener> contr1Listeners = new ArrayList<XrListener.ButtonPressedListener>();
-	ArrayList<XrListener.ButtonPressedListener> contr2Listeners = new ArrayList<XrListener.ButtonPressedListener>();
+	ArrayList<XrListener.ButtonPressedListener> contr1Listeners = new ArrayList<>();
+	ArrayList<XrListener.ButtonPressedListener> contr2Listeners = new ArrayList<>();
 	
 	public XrHmd(SimpleApplication app)
 	{
@@ -48,7 +50,12 @@ public class XrHmd
 	public static XrHmd initHmd(SimpleApplication app)
 	{
 		XrHmd xrHmd = new XrHmd(app);
-		((LwjglWindowXr)app.getContext()).getXr().setHmd(xrHmd);
+		HelloOpenXRGL xr = ((LwjglWindowXr)app.getContext()).getXr();
+		xr.setHmd(xrHmd);
+
+		ActionOpenXRState actionOpenXRState = new ActionOpenXRState(xr.getXrSession(), xr.getXrInstance());
+		app.getStateManager().attach(actionOpenXRState);
+
 		return xrHmd;
 	}
 }

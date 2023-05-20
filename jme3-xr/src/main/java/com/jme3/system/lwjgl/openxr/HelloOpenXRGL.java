@@ -860,6 +860,14 @@ public class HelloOpenXRGL {
         }
     }
 
+    public XrInstance getXrInstance(){
+        return xrInstance;
+    }
+
+    public XrSession getXrSession(){
+        return xrSession;
+    }
+
     public void check(int result) throws IllegalStateException {
         if (XR_SUCCEEDED(result)) {
             return;
