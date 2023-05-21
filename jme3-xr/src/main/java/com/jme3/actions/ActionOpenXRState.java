@@ -1,19 +1,12 @@
 package com.jme3.actions;
 
-import com.jme3.actions.controllerprofile.oculus.OculusTouchController;
-import com.jme3.anim.Armature;
-import com.jme3.anim.Joint;
 import com.jme3.app.Application;
 
 import com.jme3.app.state.BaseAppState;
 
 import com.jme3.math.FastMath;
-import com.jme3.math.Matrix4f;
 import com.jme3.math.Quaternion;
 import com.jme3.math.Vector3f;
-import com.jme3.renderer.Camera;
-import com.jme3.scene.Node;
-import com.jme3.scene.Spatial;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.PointerBuffer;
 
@@ -31,21 +24,19 @@ import org.lwjgl.openxr.XrInstance;
 import org.lwjgl.openxr.XrInteractionProfileSuggestedBinding;
 import org.lwjgl.openxr.XrSession;
 import org.lwjgl.openxr.XrSessionActionSetsAttachInfo;
+import org.lwjgl.system.MemoryUtil;
 
 import java.nio.ByteBuffer;
-import java.nio.IntBuffer;
 import java.nio.LongBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
+import static org.lwjgl.system.MemoryUtil.NULL;
 
 /**
  * This app state provides action based OpenXR calls (aka modern VR and AR).
@@ -165,7 +156,7 @@ public class ActionOpenXRState extends BaseAppState{
      *          Note that at present only a single set at a time is supported
      *
      */
-    public void registerActionManifest(String actionManifestAbsolutePath, String... startingActiveActionSets){
+    public void registerActions(){
         //see https://registry.khronos.org/OpenXR/specs/1.0/html/xrspec.html#_action_overview
 
         XrActionSetCreateInfo actionSetCreate = XrActionSetCreateInfo.create();
@@ -199,30 +190,59 @@ public class ActionOpenXRState extends BaseAppState{
         withResponseCodeLogging("xrStringToPath",XR10.xrStringToPath(xrInstance,OculusTouchController.pathBuilder().leftHand().xClick(), xClickPathBuffer));
         //suggestedBinding.set(action, XR10.xrStringToPath(xrInstance,OculusTouchController.pathBuilder().leftHand().xTouch(), xClickPathBuffer));
 
-        XrActionSuggestedBinding.Buffer suggestedBindingsBuffer = new XrActionSuggestedBinding.Buffer(BufferUtils.createByteBuffer(XrActionSuggestedBinding.SIZEOF));
-
+        XrActionSuggestedBinding.Buffer suggestedBindingsBuffer = XrActionSuggestedBinding.calloc(1);
         suggestedBindingsBuffer.action(action);
         suggestedBindingsBuffer.binding(xClickPathBuffer.get());
 
-        XrInteractionProfileSuggestedBinding xrInteractionProfileSuggestedBinding = XrInteractionProfileSuggestedBinding.create();
-        xrInteractionProfileSuggestedBinding.suggestedBindings(suggestedBindingsBuffer);
-        xrInteractionProfileSuggestedBinding.interactionProfile(oculusProfilePath.get());
 
+        XrInteractionProfileSuggestedBinding xrInteractionProfileSuggestedBinding = XrInteractionProfileSuggestedBinding.calloc()
+                .type(XR10.XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING)
+                .next(NULL)
+                .interactionProfile(oculusProfilePath.get())
+                .suggestedBindings(suggestedBindingsBuffer);
+
+        //xrInteractionProfileSuggestedBinding.suggestedBindings(suggestedBindingsBuffer);
+        //xrInteractionProfileSuggestedBinding.interactionProfile(oculusProfilePath.get());
+
+        //the below is the line returning the error code
         withResponseCodeLogging("xrSuggestInteractionProfileBindings", XR10.xrSuggestInteractionProfileBindings(xrInstance, xrInteractionProfileSuggestedBinding));
-
 
         actionSetPointer.rewind();
         XrSessionActionSetsAttachInfo actionSetsAttachInfo = XrSessionActionSetsAttachInfo.create();
-        /*PointerBuffer pointerBuffer = BufferUtils.createPointerBuffer(1);
-        LongBuffer longBuffer = BufferUtils.createLongBuffer(1);
-        longBuffer.put(actionSet.address());
-        longBuffer.rewind();
-        pointerBuffer.put(longBuffer);
-        pointerBuffer.rewind();*/
         actionSetsAttachInfo.actionSets(actionSetPointer);
 
         withResponseCodeLogging("xrAttachSessionActionSets", XR10.xrAttachSessionActionSets(xrSession, actionSetsAttachInfo));
+    }
 
+    private static ByteBuffer stringToByte(String str){
+        byte[] strBytes = str.getBytes(StandardCharsets.UTF_8);
+        byte[] nullTerminatedBytes = new byte[strBytes.length + 1];
+        System.arraycopy(strBytes, 0, nullTerminatedBytes, 0, strBytes.length);
+        nullTerminatedBytes[nullTerminatedBytes.length - 1] = 0;  // add null terminator
+        ByteBuffer buffer = BufferUtils.createByteBuffer(nullTerminatedBytes.length);
+        buffer.put(nullTerminatedBytes);
+        buffer.rewind();
+        return buffer;
+    }
+
+    private void withResponseCodeLogging(String eventText, int errorCode){
+        //error code 0 is ultra common and means all is well. Don't flood the logs with it
+        if (errorCode != 0){
+            ByteBuffer buffer = BufferUtils.createByteBuffer(XR10.XR_MAX_RESULT_STRING_SIZE);
+            XR10.xrResultToString(xrInstance, errorCode, buffer);
+
+            String message = MemoryUtil.memUTF8(buffer, MemoryUtil.memLengthNT1(buffer));
+            logger.warning("XRNATIVE"+message);
+
+            CallResponseCode fullErrorDetails = CallResponseCode.getResponseCode(errorCode);
+            if (fullErrorDetails.isAnErrorCondition()){
+                logger.warning(fullErrorDetails.getFormattedErrorMessage() + " Occurred during  " + eventText);
+            }else{
+                if (logger.isLoggable(Level.INFO)){
+                    logger.info(fullErrorDetails.getFormattedErrorMessage() + " Occurred during " + eventText);
+                }
+            }
+        }
     }
 
     /**
@@ -259,7 +279,7 @@ public class ActionOpenXRState extends BaseAppState{
      * <p>
      * This is called for digital style actions (a button is pressed, or not)
      * <p>
-     * {@link #registerActionManifest} must have been called before using this method.
+     * {@link #registerActions} must have been called before using this method.
      *
      * @param actionName The name of the action. E.g. /actions/main/in/openInventory
      * @return the DigitalActionState that has details on if the state has changed, what the state is etc.
@@ -281,7 +301,7 @@ public class ActionOpenXRState extends BaseAppState{
      * Note that restrictToInput only restricts, it must still be bound to the input you want to receive the input from in
      * the action manifest default bindings.
      * <p>
-     * {@link #registerActionManifest} must have been called before using this method.
+     * {@link #registerActions} must have been called before using this method.
      *
      * @param actionName The name of the action. E.g. /actions/main/in/openInventory
      * @param restrictToInput the input to restrict the action to. E.g. /user/hand/right. Or null, which means "any input"
@@ -405,7 +425,7 @@ public class ActionOpenXRState extends BaseAppState{
      * <p>
      * If the handedness matters use {@link #getAnalogActionState(String, String)}
      *
-     * {@link #registerActionManifest} must have been called before using this method.
+     * {@link #registerActions} must have been called before using this method.
      *
      * @param actionName The name of the action. E.g. /actions/main/in/openInventory
      * @return the AnalogActionState that has details on how much the state has changed, what the state is etc.
@@ -427,7 +447,7 @@ public class ActionOpenXRState extends BaseAppState{
      * Note that restrictToInput only restricts, it must still be bound to the input you want to receive the input from in
      * the action manifest default bindings.
      * <p>
-     * {@link #registerActionManifest} must have been called before using this method.
+     * {@link #registerActions} must have been called before using this method.
      *
      * @param actionName The name of the action. E.g. /actions/main/in/openInventory
      * @param restrictToInput the input to restrict the action to. E.g. /user/hand/right. Or null, which means "any input"
@@ -663,19 +683,7 @@ public class ActionOpenXRState extends BaseAppState{
         }
     }
     */
-    private static void withResponseCodeLogging(String eventText, int errorCode){
-        //error code 0 is ultra common and means all is well. Don't flood the logs with it
-        if (errorCode != 0){
-            CallResponseCode fullErrorDetails = CallResponseCode.getResponseCode(errorCode);
-            if (fullErrorDetails.isAnErrorCondition()){
-                logger.warning(fullErrorDetails.getFormattedErrorMessage() + " Occurred during  " + eventText);
-            }else{
-                if (logger.isLoggable(Level.FINE)){
-                    logger.info(fullErrorDetails.getFormattedErrorMessage() + " Occurred during " + eventText);
-                }
-            }
-        }
-    }
+
     /*
     private VRActiveActionSet.Buffer getOrBuildActionSets(){
 
@@ -726,15 +734,5 @@ public class ActionOpenXRState extends BaseAppState{
         return activeActionSets;
     }
     */
-    private static ByteBuffer stringToByte(String str){
-        byte[] strBytes = str.getBytes(StandardCharsets.UTF_8);
-        byte[] nullTerminatedBytes = new byte[strBytes.length + 1];
-        System.arraycopy(strBytes, 0, nullTerminatedBytes, 0, strBytes.length);
-        nullTerminatedBytes[nullTerminatedBytes.length - 1] = 0;  // add null terminator
-        ByteBuffer buffer = BufferUtils.createByteBuffer(nullTerminatedBytes.length);
-        buffer.put(nullTerminatedBytes);
-        buffer.rewind();
-        return buffer;
-    }
 
 }
