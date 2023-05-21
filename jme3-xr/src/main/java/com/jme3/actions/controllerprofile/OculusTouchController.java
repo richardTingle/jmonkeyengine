@@ -1,4 +1,4 @@
-package com.jme3.actions.controllerprofile.oculus;
+package com.jme3.actions.controllerprofile;
 
 public class OculusTouchController{
     public static final String PROFILE = "/interaction_profiles/oculus/touch_controller";

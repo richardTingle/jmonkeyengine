@@ -1,4 +1,4 @@
-package com.jme3.actions.controllerprofile.oculus;
+package com.jme3.actions.controllerprofile;
 
 public class XboxController {
     public static final String PROFILE = "/interaction_profiles/microsoft/xbox_controller";

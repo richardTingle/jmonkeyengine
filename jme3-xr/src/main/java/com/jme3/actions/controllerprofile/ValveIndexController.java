@@ -1,4 +1,4 @@
-package com.jme3.actions.controllerprofile.oculus;
+package com.jme3.actions.controllerprofile;
 
 public class ValveIndexController {
     public static final String PROFILE = "/interaction_profiles/valve/index_controller";
