@@ -1,5 +1,6 @@
 package com.jme3.actions;
 
+import com.jme3.actions.controllerprofile.OculusTouchController;
 import com.jme3.app.Application;
 
 import com.jme3.app.state.BaseAppState;
@@ -187,7 +188,7 @@ public class ActionOpenXRState extends BaseAppState{
 
         //XrcAtionSuggestedBinding suggestedBinding = XrActionSuggestedBinding.create();
         LongBuffer xClickPathBuffer = BufferUtils.createLongBuffer(1);
-        withResponseCodeLogging("xrStringToPath",XR10.xrStringToPath(xrInstance,OculusTouchController.pathBuilder().leftHand().xClick(), xClickPathBuffer));
+        withResponseCodeLogging("xrStringToPath",XR10.xrStringToPath(xrInstance, OculusTouchController.pathBuilder().leftHand().xClick(), xClickPathBuffer));
         //suggestedBinding.set(action, XR10.xrStringToPath(xrInstance,OculusTouchController.pathBuilder().leftHand().xTouch(), xClickPathBuffer));
 
         XrActionSuggestedBinding.Buffer suggestedBindingsBuffer = XrActionSuggestedBinding.calloc(1);
@@ -195,9 +196,7 @@ public class ActionOpenXRState extends BaseAppState{
         suggestedBindingsBuffer.binding(xClickPathBuffer.get());
 
 
-        XrInteractionProfileSuggestedBinding xrInteractionProfileSuggestedBinding = XrInteractionProfileSuggestedBinding.calloc()
-                .type(XR10.XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING)
-                .next(NULL)
+        XrInteractionProfileSuggestedBinding xrInteractionProfileSuggestedBinding = XrInteractionProfileSuggestedBinding.create()
                 .interactionProfile(oculusProfilePath.get())
                 .suggestedBindings(suggestedBindingsBuffer);
 
