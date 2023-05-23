@@ -14,23 +14,40 @@ public class SuggestedBindingsProfileView{
 
     String profileName;
 
-    Map<String,String> actionToBindingMap = new HashMap<>();
+    Map<ActionData,String> actionToBindingMap = new HashMap<>();
 
     SuggestedBindingsProfileView(String profileName){
         this.profileName = profileName;
     }
 
-    void addSuggestion(String action, String binding){
-        actionToBindingMap.put(action, binding);
+    void addSuggestion(String actionSet, String action, String binding){
+        actionToBindingMap.put(new ActionData(actionSet,action), binding);
     }
 
     public String getProfileName(){
         return profileName;
     }
 
-    public Map<String, String> getActionToBindingMap(){
+    public Map<ActionData,String> getSetToActionToBindingMap(){
         return actionToBindingMap;
     }
 
+    public static class ActionData{
+        private final String actionSet;
+        private final String actionName;
+
+        public ActionData(String actionSet, String actionName){
+            this.actionSet = actionSet;
+            this.actionName = actionName;
+        }
+
+        public String getActionSet(){
+            return actionSet;
+        }
+
+        public String getActionName(){
+            return actionName;
+        }
+    }
 
 }

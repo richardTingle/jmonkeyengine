@@ -1,5 +1,9 @@
 package com.jme3.actions;
 
+import com.jme3.actions.actionprofile.Action;
+import com.jme3.actions.actionprofile.ActionManifest;
+import com.jme3.actions.actionprofile.ActionSet;
+import com.jme3.actions.actionprofile.SuggestedBindingsProfileView;
 import com.jme3.actions.controllerprofile.OculusTouchController;
 import com.jme3.app.Application;
 
@@ -16,11 +20,7 @@ import org.lwjgl.openxr.XrAction;
 import org.lwjgl.openxr.XrActionCreateInfo;
 import org.lwjgl.openxr.XrActionSet;
 import org.lwjgl.openxr.XrActionSetCreateInfo;
-import org.lwjgl.openxr.XrActionStateBoolean;
-import org.lwjgl.openxr.XrActionStateGetInfo;
 import org.lwjgl.openxr.XrActionSuggestedBinding;
-import org.lwjgl.openxr.XrActionsSyncInfo;
-import org.lwjgl.openxr.XrActiveActionSet;
 import org.lwjgl.openxr.XrInstance;
 import org.lwjgl.openxr.XrInteractionProfileSuggestedBinding;
 import org.lwjgl.openxr.XrSession;
@@ -31,13 +31,14 @@ import java.nio.ByteBuffer;
 import java.nio.LongBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-
-import static org.lwjgl.system.MemoryUtil.NULL;
 
 /**
  * This app state provides action based OpenXR calls (aka modern VR and AR).
@@ -96,7 +97,12 @@ public class ActionOpenXRState extends BaseAppState{
     private final XrSession xrSession;
     private final XrInstance xrInstance;
 
-    private XrActionSet activeActionSet;
+    private Map<String, XrActionSet> actionSets;
+
+    /**
+     * This is action set -> action name -> action
+     */
+    private Map<String, Map<String,XrAction>> actions;
 
     XrAction teleportAction;
 
@@ -140,77 +146,88 @@ public class ActionOpenXRState extends BaseAppState{
      * (An action is an abstract version of a button press). The action manifest may then also include references to
      * further files that define default mappings between those actions and physical buttons on the VR controllers.
      * <p>
-     * Note that registering an actions manifest will deactivate legacy inputs (i.e. methods such as isButtonDown
-     * will no longer work
-     * <p>
-     * See <a href="https://github.com/ValveSoftware/openvr/wiki/Action-manifest">https://github.com/ValveSoftware/openvr/wiki/Action-manifest</a>
-     * for documentation on how to create an action manifest
-     * <p>
-     * This option is only relevant to OpenVR
-     *
-     * @param actionManifestAbsolutePath
-     *          the absolute file path to an actions manifest
-     * @param startingActiveActionSets
-     *          the actions in the manifest are divided into action sets (groups) by their prefix (e.g. "/actions/main").
-     *          These action sets can be turned off and on per frame. This argument sets the action set that will be
-     *          active now. The active action sets can be later be changed by calling {@link #setActiveActionSetsBothHands}.
-     *          Note that at present only a single set at a time is supported
-     *
+     * @param startingActiveActionSets   the actions in the manifest are divided into action sets (groups) by their prefix (e.g. "/actions/main").
+     *                                   These action sets can be turned off and on per frame. This argument sets the action set that will be
+     *                                   active now. The active action sets can be later be changed by calling {@link #setActiveActionSetsBothHands}.
+     *                                   Note that at present only a single set at a time is supported
+     * @param manifest a class describing all the actions (abstract versions of buttons, hand poses etc) available to the application
      */
-    public void registerActions(){
-        //see https://registry.khronos.org/OpenXR/specs/1.0/html/xrspec.html#_action_overview
+    public void registerActions(ActionManifest manifest){
+        //see https://registry.khronos.org/OpenXR/specs/1.0/html/xrspec.html#_action_overview for examples of these calls
 
-        XrActionSetCreateInfo actionSetCreate = XrActionSetCreateInfo.create();
-        actionSetCreate.actionSetName(stringToByte("test"));
-        actionSetCreate.localizedActionSetName(stringToByte("testTranslation"));
-        actionSetCreate.priority(0);
+        assert actionSets == null: "Actions have already been registered, consider using action sets and activating and deactivating them as required";
 
-        PointerBuffer actionSetPointer = BufferUtils.createPointerBuffer(1);
-        withResponseCodeLogging("Create action set", XR10.xrCreateActionSet(xrInstance, actionSetCreate, actionSetPointer));
-        actionSetCreate.close();
+        actionSets = new HashMap<>();
+        actions = new HashMap<>();
 
-        XrActionSet actionSet = new XrActionSet(actionSetPointer.get(), xrInstance);
-        activeActionSet = actionSet;
+        for(ActionSet actionSet : manifest.getActionSets()){
+            XrActionSetCreateInfo actionSetCreate = XrActionSetCreateInfo.create();
+            actionSetCreate.actionSetName(stringToByte(actionSet.getName()));
+            actionSetCreate.localizedActionSetName(stringToByte(actionSet.getTranslatedName()));
+            actionSetCreate.priority(actionSet.getPriority());
 
-        XrActionCreateInfo xrActionCreateInfo = XrActionCreateInfo.create();
-        xrActionCreateInfo.actionName(stringToByte("teleport"));
-        xrActionCreateInfo.actionType(ActionType.BOOLEAN.getOpenXrOption());
-        xrActionCreateInfo.localizedActionName(stringToByte("teleportTranslated"));
-        PointerBuffer actionPointer = BufferUtils.createPointerBuffer(1);
-        withResponseCodeLogging("xrStringToPath", XR10.xrCreateAction(actionSet, xrActionCreateInfo, actionPointer));
-        XrAction action = new XrAction(actionPointer.get(), actionSet);
-        teleportAction = action;
+            PointerBuffer actionSetPointer = BufferUtils.createPointerBuffer(1);
+            withResponseCodeLogging("Create action set", XR10.xrCreateActionSet(xrInstance, actionSetCreate, actionSetPointer));
+            actionSetCreate.close();
 
-        xrActionCreateInfo.close();
+            XrActionSet xrActionSet = new XrActionSet(actionSetPointer.get(), xrInstance);
+            actionSets.put(actionSet.getName(), xrActionSet);
 
-        LongBuffer oculusProfilePath = BufferUtils.createLongBuffer(1);
-        withResponseCodeLogging("xrStringToPath", XR10.xrStringToPath(xrInstance, OculusTouchController.PROFILE, oculusProfilePath));
+            for(Action action : actionSet.getActions()){
+                XrActionCreateInfo xrActionCreateInfo = XrActionCreateInfo.create();
+                xrActionCreateInfo.actionName(stringToByte(action.getActionName()));
+                xrActionCreateInfo.actionType(action.getActionType().getOpenXrOption());
+                xrActionCreateInfo.localizedActionName(stringToByte(action.getTranslatedName()));
+                PointerBuffer actionPointer = BufferUtils.createPointerBuffer(1);
+                withResponseCodeLogging("xrStringToPath", XR10.xrCreateAction(xrActionSet, xrActionCreateInfo, actionPointer));
+                XrAction xrAction = new XrAction(actionPointer.get(), xrActionSet);
+                actions.computeIfAbsent(actionSet.getName(), name -> new HashMap<>()).put(action.getActionName(), xrAction);
 
-        //XrcAtionSuggestedBinding suggestedBinding = XrActionSuggestedBinding.create();
-        LongBuffer xClickPathBuffer = BufferUtils.createLongBuffer(1);
-        withResponseCodeLogging("xrStringToPath",XR10.xrStringToPath(xrInstance, OculusTouchController.pathBuilder().leftHand().xClick(), xClickPathBuffer));
-        //suggestedBinding.set(action, XR10.xrStringToPath(xrInstance,OculusTouchController.pathBuilder().leftHand().xTouch(), xClickPathBuffer));
+                xrActionCreateInfo.close();
+            }
+        }
 
-        XrActionSuggestedBinding.Buffer suggestedBindingsBuffer = XrActionSuggestedBinding.calloc(1);
-        suggestedBindingsBuffer.action(action);
-        suggestedBindingsBuffer.binding(xClickPathBuffer.get());
+        Collection<SuggestedBindingsProfileView> suggestedBindingsGroupedByProfile = manifest.getSuggestedBindingsGroupedByProfile();
 
+        for(SuggestedBindingsProfileView profile : suggestedBindingsGroupedByProfile){
+            LongBuffer deviceProfilePath = BufferUtils.createLongBuffer(1);
+            withResponseCodeLogging("xrStringToPath:"+deviceProfilePath, XR10.xrStringToPath(xrInstance, OculusTouchController.PROFILE, deviceProfilePath));
 
-        XrInteractionProfileSuggestedBinding xrInteractionProfileSuggestedBinding = XrInteractionProfileSuggestedBinding.create()
-                .interactionProfile(oculusProfilePath.get())
-                .suggestedBindings(suggestedBindingsBuffer);
+            Set<Map.Entry<SuggestedBindingsProfileView.ActionData, String>> suggestedBindings = profile.getSetToActionToBindingMap().entrySet();
+            XrActionSuggestedBinding.Buffer suggestedBindingsBuffer = XrActionSuggestedBinding.calloc(suggestedBindings.size());
 
-        //xrInteractionProfileSuggestedBinding.suggestedBindings(suggestedBindingsBuffer);
-        //xrInteractionProfileSuggestedBinding.interactionProfile(oculusProfilePath.get());
+            Iterator<Map.Entry<SuggestedBindingsProfileView.ActionData, String>> suggestedBindingIterator = suggestedBindings.iterator();
+            for(int i=0; i<suggestedBindings.size(); i++){
+                Map.Entry<SuggestedBindingsProfileView.ActionData, String> actionAndBinding = suggestedBindingIterator.next();
+                LongBuffer bindingHandleBuffer = BufferUtils.createLongBuffer(1);
+                withResponseCodeLogging("xrStringToPath:" + actionAndBinding.getValue(),XR10.xrStringToPath(xrInstance, actionAndBinding.getValue(), bindingHandleBuffer));
 
-        //the below is the line returning the error code
-        withResponseCodeLogging("xrSuggestInteractionProfileBindings", XR10.xrSuggestInteractionProfileBindings(xrInstance, xrInteractionProfileSuggestedBinding));
+                XrAction action = actions.get(actionAndBinding.getKey().getActionSet()).get(actionAndBinding.getKey().getActionName());
+                suggestedBindingsBuffer.position(i);
+                suggestedBindingsBuffer.action(action);
+                suggestedBindingsBuffer.binding(bindingHandleBuffer.get());
+            }
+            suggestedBindingsBuffer.position(0); //reset ready for reading
 
-        actionSetPointer.rewind();
+            XrInteractionProfileSuggestedBinding xrInteractionProfileSuggestedBinding = XrInteractionProfileSuggestedBinding.calloc()
+                    .type(XR10.XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING)
+                    .interactionProfile(deviceProfilePath.get())
+                    .suggestedBindings(suggestedBindingsBuffer);
+
+            withResponseCodeLogging("xrSuggestInteractionProfileBindings", XR10.xrSuggestInteractionProfileBindings(xrInstance, xrInteractionProfileSuggestedBinding));
+        }
+
+        PointerBuffer actionSetsBuffer = BufferUtils.createPointerBuffer(actionSets.size());
+
+        actionSets.values().forEach(actionSet -> actionSetsBuffer.put(actionSet.address()));
+        actionSetsBuffer.flip();  // Reset the position back to the start of the buffer
+
         XrSessionActionSetsAttachInfo actionSetsAttachInfo = XrSessionActionSetsAttachInfo.create();
-        actionSetsAttachInfo.actionSets(actionSetPointer);
-
+        actionSetsAttachInfo.type(XR10.XR_TYPE_SESSION_ACTION_SETS_ATTACH_INFO);
+        actionSetsAttachInfo.actionSets(actionSetsBuffer);
         withResponseCodeLogging("xrAttachSessionActionSets", XR10.xrAttachSessionActionSets(xrSession, actionSetsAttachInfo));
+
+        actionSetsAttachInfo.free();
     }
 
     private static ByteBuffer stringToByte(String str){
@@ -512,7 +529,7 @@ public class ActionOpenXRState extends BaseAppState{
     @Override
     public void update(float tpf){
         super.update(tpf);
-
+        /*
         if (activeActionSet==null){
             return;
         }
@@ -534,7 +551,7 @@ public class ActionOpenXRState extends BaseAppState{
         withResponseCodeLogging("getActionState", XR10.xrGetActionStateBoolean(xrSession, teleportInfo, teleportState));
         if (teleportState.changedSinceLastSync()){
             System.out.println("Value " + teleportState.currentState());
-        }
+        }*/
     }
 
     /**

@@ -34,7 +34,7 @@ public class ActionManifest{
             for(Action action : actionSet.getActions()){
                 for(SuggestedBinding suggestedBinding : action.getSuggestedBindings()){
                     profileSuggestedBindings.computeIfAbsent(suggestedBinding.profile, SuggestedBindingsProfileView::new)
-                            .addSuggestion(action.getActionName(), suggestedBinding.binding);
+                            .addSuggestion(actionSet.getName(), action.getActionName(), suggestedBinding.binding);
                 }
             }
         }
@@ -48,7 +48,7 @@ public class ActionManifest{
     public static class ActionProfileBuilder{
         private final List<ActionSet> actionSets = new ArrayList<>();
 
-        public ActionProfileBuilder actionSet(ActionSet actionSet){
+        public ActionProfileBuilder withActionSet(ActionSet actionSet){
             actionSets.add(actionSet);
             return this;
         }

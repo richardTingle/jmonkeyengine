@@ -48,6 +48,10 @@ public class Action{
         return suggestedBindings;
     }
 
+    public static ActionBuilder builder(){
+        return new ActionBuilder();
+    }
+
     public static class ActionBuilder{
         private String actionName;
         private String translatedName;
@@ -81,6 +85,11 @@ public class Action{
             return this;
         }
 
+
+        public ActionBuilder withSuggestedBinding(String profile, String binding){
+            this.suggestedBindings.add(new SuggestedBinding(profile, binding));
+            return this;
+        }
         /**
          * Suggested bindings are physical bindings to specific devices for this action.
          * This method can be called multiple times to add more bindings.
