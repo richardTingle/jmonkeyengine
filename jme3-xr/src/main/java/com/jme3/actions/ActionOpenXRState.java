@@ -5,6 +5,7 @@ import com.jme3.actions.actionprofile.ActionManifest;
 import com.jme3.actions.actionprofile.ActionSet;
 import com.jme3.actions.actionprofile.SuggestedBindingsProfileView;
 import com.jme3.actions.controllerprofile.OculusTouchController;
+import com.jme3.actions.state.DigitalActionState;
 import com.jme3.app.Application;
 
 import com.jme3.app.state.BaseAppState;
@@ -20,7 +21,11 @@ import org.lwjgl.openxr.XrAction;
 import org.lwjgl.openxr.XrActionCreateInfo;
 import org.lwjgl.openxr.XrActionSet;
 import org.lwjgl.openxr.XrActionSetCreateInfo;
+import org.lwjgl.openxr.XrActionStateBoolean;
+import org.lwjgl.openxr.XrActionStateGetInfo;
 import org.lwjgl.openxr.XrActionSuggestedBinding;
+import org.lwjgl.openxr.XrActionsSyncInfo;
+import org.lwjgl.openxr.XrActiveActionSet;
 import org.lwjgl.openxr.XrInstance;
 import org.lwjgl.openxr.XrInteractionProfileSuggestedBinding;
 import org.lwjgl.openxr.XrSession;
@@ -104,14 +109,10 @@ public class ActionOpenXRState extends BaseAppState{
      */
     private Map<String, Map<String,XrAction>> actions;
 
-    XrAction teleportAction;
+    private XrActionsSyncInfo xrActionsSyncInfo;
 
     static {
         HALF_ROTATION_ABOUT_Y.fromAngleAxis(FastMath.PI, Vector3f.UNIT_Y);
-    }
-
-    {
-        //inputHandles.put(null, VR.k_ulInvalidInputValueHandle);
     }
 
     public ActionOpenXRState(XrSession xrSession, XrInstance xrInstance){
@@ -146,16 +147,17 @@ public class ActionOpenXRState extends BaseAppState{
      * (An action is an abstract version of a button press). The action manifest may then also include references to
      * further files that define default mappings between those actions and physical buttons on the VR controllers.
      * <p>
-     * @param startingActiveActionSets   the actions in the manifest are divided into action sets (groups) by their prefix (e.g. "/actions/main").
-     *                                   These action sets can be turned off and on per frame. This argument sets the action set that will be
-     *                                   active now. The active action sets can be later be changed by calling {@link #setActiveActionSetsBothHands}.
-     *                                   Note that at present only a single set at a time is supported
      * @param manifest a class describing all the actions (abstract versions of buttons, hand poses etc) available to the application
+     * @param startingActionSets the names of the action sets that should be activated at the start of the application (aka the ones that will work)
      */
-    public void registerActions(ActionManifest manifest){
+    public void registerActions(ActionManifest manifest, String... startingActionSets){
         //see https://registry.khronos.org/OpenXR/specs/1.0/html/xrspec.html#_action_overview for examples of these calls
 
         assert actionSets == null: "Actions have already been registered, consider using action sets and activating and deactivating them as required";
+
+        if (startingActionSets.length == 0){
+            logger.log(Level.WARNING, "No starting action sets specified, that means no actions will be usable. Probably not what you want.");
+        }
 
         actionSets = new HashMap<>();
         actions = new HashMap<>();
@@ -228,6 +230,49 @@ public class ActionOpenXRState extends BaseAppState{
         withResponseCodeLogging("xrAttachSessionActionSets", XR10.xrAttachSessionActionSets(xrSession, actionSetsAttachInfo));
 
         actionSetsAttachInfo.free();
+
+        setActiveActionSets(startingActionSets);
+    }
+
+    /**
+     * This sets the action sets that will be active. I.e. the actions in this action set will work, others will be ignored
+     * @param actionSets the names of the action sets
+     */
+    public void setActiveActionSets(String... actionSets){
+
+        List<XrActionSet> activeActionSets = new ArrayList<>(actionSets.length);
+
+        for(String actionSet : actionSets){
+            XrActionSet actionSetXr = this.actionSets.get(actionSet);
+            if(actionSetXr==null){
+                throw new RuntimeException("Action set not found: " + actionSet);
+            }
+            activeActionSets.add(actionSetXr);
+        }
+
+        /*
+        XrActionsSyncInfo syncInfo = XrActionsSyncInfo.create();
+        syncInfo.countActiveActionSets(1);
+        ByteBuffer activeActionSetBuffer = BufferUtils.createByteBuffer(XrActiveActionSet.SIZEOF*1);
+        XrActiveActionSet.Buffer activeActionSets = XrActiveActionSet.calloc(1);
+        activeActionSets.actionSet(activeActionSet);
+        syncInfo.activeActionSets(activeActionSets);
+
+        withResponseCodeLogging("xrSyncActions", XR10.xrSyncActions(xrSession, syncInfo));
+        */
+
+        this.xrActionsSyncInfo = XrActionsSyncInfo.create();
+        this.xrActionsSyncInfo.countActiveActionSets(activeActionSets.size());
+        XrActiveActionSet.Buffer activeActionSetsBuffer = XrActiveActionSet.calloc(activeActionSets.size());
+        for(XrActionSet activeActionSet : activeActionSets){
+            activeActionSetsBuffer.actionSet(activeActionSet);
+        }
+        for(int i=0; i<activeActionSets.size(); i++){
+            activeActionSetsBuffer.position(i);
+            activeActionSetsBuffer.actionSet(activeActionSets.get(i));
+        }
+        activeActionSetsBuffer.position(0);
+        this.xrActionsSyncInfo.activeActionSets(activeActionSetsBuffer);
     }
 
     private static ByteBuffer stringToByte(String str){
@@ -261,34 +306,6 @@ public class ActionOpenXRState extends BaseAppState{
         }
     }
 
-    /**
-     * This sets action sets active for all hands
-     * @param actionSets the action sets to set as active
-     */
-    public void setActiveActionSetsBothHands(String... actionSets){
-
-    }
-
-    /**
-     * This sets action sets active for the left hand only
-     * <p>
-     * Note that setting an action to left and right (or left and both) is equivalent to setting it to both
-     * @param actionSets the action sets to set as active
-     */
-    public void setActiveActionSetsLeftHand(String... actionSets){
-
-    }
-
-    /**
-     * This sets action sets active for the right hand only
-     * <p>
-     * Note that setting an action to left and right (or right and both) is equivalent to setting it to both
-     *
-     * @param actionSets the action sets to set as active
-     */
-    public void setActiveActionSetsRightHand(String... actionSets){
-
-    }
 
     /**
      * Gets the current state of the action (abstract version of a button press).
@@ -297,13 +314,44 @@ public class ActionOpenXRState extends BaseAppState{
      * <p>
      * {@link #registerActions} must have been called before using this method.
      *
-     * @param actionName The name of the action. E.g. /actions/main/in/openInventory
+     * @param actionSet The name of the action set. E.g. inGameActions
+     * @param actionName The name of the action. E.g. openInventory
      * @return the DigitalActionState that has details on if the state has changed, what the state is etc.
-
-    public DigitalActionState getDigitalActionState(String actionName){
-        return getDigitalActionState(actionName, null);
-    }
      */
+    public DigitalActionState getDigitalActionState(String actionSet, String actionName){
+        return getDigitalActionState(obtainActionHandle(actionSet, actionName));
+    }
+
+    /**
+     * Gets the current state of the action (abstract version of a button press).
+     * <p>
+     * This is called for digital style actions (a button is pressed, or not)
+     * <p>
+     * {@link #registerActions} must have been called before using this method.
+     * @return the DigitalActionState that has details on if the state has changed, what the state is etc.
+     */
+    public DigitalActionState getDigitalActionState(XrAction action){
+        XrActionStateBoolean actionState = XrActionStateBoolean.calloc();
+        XrActionStateGetInfo actionInfo = XrActionStateGetInfo.calloc();
+        actionInfo.action(action);
+        withResponseCodeLogging("getActionState", XR10.xrGetActionStateBoolean(xrSession, actionInfo, actionState));
+        try{
+            return new DigitalActionState(actionState.currentState(), actionState.changedSinceLastSync());
+        }finally{
+            actionState.free();
+            actionInfo.free();
+        }
+    }
+
+    /**
+     * This allows the XrAction object to be obtained for a particular action set and action name.
+     * This handle can be used instead of quoting the name and set every time (it's also marginally faster
+     * to hold onto these XrAction and use them directly rather than having {@link ActionOpenXRState} look them up)
+     */
+    public XrAction obtainActionHandle(String actionSet, String actionName){
+        return actions.get(actionSet).get(actionName);
+    }
+
 
     /**
      * Gets the current state of the action (abstract version of a button press).
@@ -529,20 +577,10 @@ public class ActionOpenXRState extends BaseAppState{
     @Override
     public void update(float tpf){
         super.update(tpf);
-        /*
-        if (activeActionSet==null){
-            return;
+        if (xrActionsSyncInfo !=null){
+            withResponseCodeLogging("xrSyncActions", XR10.xrSyncActions(xrSession, this.xrActionsSyncInfo));
         }
-
-        XrActionsSyncInfo syncInfo = XrActionsSyncInfo.create();
-        syncInfo.countActiveActionSets(1);
-        ByteBuffer activeActionSetBuffer = BufferUtils.createByteBuffer(XrActiveActionSet.SIZEOF*1);
-        XrActiveActionSet.Buffer activeActionSets = new XrActiveActionSet.Buffer(activeActionSetBuffer);
-        activeActionSets.actionSet(activeActionSet);
-
-        syncInfo.activeActionSets(activeActionSets);
-
-        withResponseCodeLogging("xrSyncActions", XR10.xrSyncActions(xrSession, syncInfo));
+        /*
 
         XrActionStateBoolean teleportState = XrActionStateBoolean.create();
         XrActionStateGetInfo teleportInfo = XrActionStateGetInfo.create();
@@ -565,18 +603,6 @@ public class ActionOpenXRState extends BaseAppState{
         throw new UnsupportedOperationException("Not supported yet.");
     }
 
-    /**
-     * Given an input name returns the handle to address it.
-     * <p>
-     * If a cached handle is available it is returned, if not it is fetched from openVr
-     *
-     * @param inputName the input name, e.g. /user/hand/right. Or null, which means "any input"
-     * @return the handle
-     */
-    public long getOrFetchInputHandle( String inputName ){
-        //do we need to do this?
-        throw new UnsupportedOperationException("Not supported yet.");
-    }
     /*
     public Map<String, BoneStance> getModelRelativeSkeletonPositions(String actionName){
         LWJGLSkeletonData skeletonData = getOrFetchSkeletonData(actionName);
