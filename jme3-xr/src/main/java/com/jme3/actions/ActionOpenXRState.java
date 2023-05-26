@@ -164,10 +164,7 @@ public class ActionOpenXRState extends BaseAppState{
         actionSets = new HashMap<>();
         actions = new HashMap<>();
 
-        LongBuffer standardSubactionPaths = BufferUtils.createLongBuffer(2);
-        standardSubactionPaths.put(pathToLong("/user/hand/left",true));
-        standardSubactionPaths.put(pathToLong("/user/hand/right",true));
-
+        Map<List<String>, LongBuffer> subActionPaths = new HashMap<>();
 
         for(ActionSet actionSet : manifest.getActionSets()){
             XrActionSetCreateInfo actionSetCreate = XrActionSetCreateInfo.create();
@@ -183,13 +180,24 @@ public class ActionOpenXRState extends BaseAppState{
             actionSets.put(actionSet.getName(), xrActionSet);
 
             for(Action action : actionSet.getActions()){
-                standardSubactionPaths.rewind();
-
                 XrActionCreateInfo xrActionCreateInfo = XrActionCreateInfo.create();
                 xrActionCreateInfo.actionName(stringToByte(action.getActionName()));
                 xrActionCreateInfo.actionType(action.getActionType().getOpenXrOption());
                 xrActionCreateInfo.localizedActionName(stringToByte(action.getTranslatedName()));
-                xrActionCreateInfo.subactionPaths(standardSubactionPaths);
+
+                List<String> supportedSubActionPaths = action.getSupportedSubActionPaths();
+                if (!action.getSupportedSubActionPaths().isEmpty()){
+                    LongBuffer subActionsLongBuffer = subActionPaths.computeIfAbsent(supportedSubActionPaths, paths -> {
+                        LongBuffer standardSubActionPaths = BufferUtils.createLongBuffer(paths.size());
+                        for(String path : paths){
+                            standardSubActionPaths.put(pathToLong(path,true));
+                        }
+                        return standardSubActionPaths;
+                    });
+                    subActionsLongBuffer.rewind();
+                    xrActionCreateInfo.subactionPaths(subActionsLongBuffer);
+                }
+
                 PointerBuffer actionPointer = BufferUtils.createPointerBuffer(1);
                 withResponseCodeLogging("xrStringToPath", XR10.xrCreateAction(xrActionSet, xrActionCreateInfo, actionPointer));
                 XrAction xrAction = new XrAction(actionPointer.get(), xrActionSet);

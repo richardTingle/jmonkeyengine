@@ -1,11 +1,22 @@
 package com.jme3.actions.actionprofile;
 
 import com.jme3.actions.ActionType;
+import com.jme3.actions.HandSide;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public class Action{
+
+    /**
+     * By default, all actions support the left and right hand sides.
+     */
+    public static List<String> DEFAULT_SUB_ACTIONS = new ArrayList<>();
+
+    static{
+        DEFAULT_SUB_ACTIONS.add(HandSide.LEFT.restrictToInputString);
+        DEFAULT_SUB_ACTIONS.add(HandSide.RIGHT.restrictToInputString);
+    }
 
     /**
      * The action name. This should be things like "teleport", not things like "X Click". The idea is that they are
@@ -25,11 +36,22 @@ public class Action{
      */
     private final List<SuggestedBinding> suggestedBindings;
 
+    private final List<String> supportedSubActionPaths;
+
     public Action(String actionName, String translatedName, ActionType actionType, List<SuggestedBinding> suggestedBindings){
         this.actionName = actionName;
         this.translatedName = translatedName;
         this.actionType = actionType;
         this.suggestedBindings = suggestedBindings;
+        this.supportedSubActionPaths = DEFAULT_SUB_ACTIONS;
+    }
+
+    public Action(String actionName, String translatedName, ActionType actionType, List<SuggestedBinding> suggestedBindings, List<String> supportedSubActionPaths){
+        this.actionName = actionName;
+        this.translatedName = translatedName;
+        this.actionType = actionType;
+        this.suggestedBindings = suggestedBindings;
+        this.supportedSubActionPaths = supportedSubActionPaths;
     }
 
     public String getActionName(){
@@ -48,6 +70,10 @@ public class Action{
         return suggestedBindings;
     }
 
+    public List<String> getSupportedSubActionPaths(){
+        return supportedSubActionPaths;
+    }
+
     public static ActionBuilder builder(){
         return new ActionBuilder();
     }
@@ -61,6 +87,8 @@ public class Action{
          * These are physical bindings to specific devices for this action.
          */
         private final List<SuggestedBinding> suggestedBindings = new ArrayList<>();
+
+        private List<String> supportedSubActionPaths = DEFAULT_SUB_ACTIONS;
 
         /**
          * The action name. This should be things like "teleport", not things like "X Click". The idea is that they are
@@ -99,6 +127,14 @@ public class Action{
             return this;
         }
 
+        /**
+         * Sub action paths are things like "/user/hand/left", for use when restricting actions to a specific input source.
+         * This is defaulted to ["/user/hand/left", "/user/hand/right"] and there is usually no reason to change it.
+         */
+        public void overrideSupportedSubActionPaths(List<String> supportedSubActionPaths){
+            this.supportedSubActionPaths = supportedSubActionPaths;
+        }
+
         public Action build(){
             if(actionName == null){
                 throw new IllegalArgumentException("name cannot be null");
@@ -112,7 +148,7 @@ public class Action{
             if(suggestedBindings.isEmpty()){
                 throw new IllegalArgumentException("suggestedBindings cannot be empty");
             }
-            return new Action(actionName, translatedName, actionType, suggestedBindings);
+            return new Action(actionName, translatedName, actionType, suggestedBindings, supportedSubActionPaths);
         }
     }
 
