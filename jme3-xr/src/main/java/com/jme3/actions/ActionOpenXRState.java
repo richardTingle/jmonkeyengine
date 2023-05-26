@@ -4,7 +4,8 @@ import com.jme3.actions.actionprofile.Action;
 import com.jme3.actions.actionprofile.ActionManifest;
 import com.jme3.actions.actionprofile.ActionSet;
 import com.jme3.actions.actionprofile.SuggestedBindingsProfileView;
-import com.jme3.actions.state.DigitalActionState;
+import com.jme3.actions.state.BooleanActionState;
+import com.jme3.actions.state.FloatActionState;
 import com.jme3.app.Application;
 
 import com.jme3.app.state.BaseAppState;
@@ -21,6 +22,7 @@ import org.lwjgl.openxr.XrActionCreateInfo;
 import org.lwjgl.openxr.XrActionSet;
 import org.lwjgl.openxr.XrActionSetCreateInfo;
 import org.lwjgl.openxr.XrActionStateBoolean;
+import org.lwjgl.openxr.XrActionStateFloat;
 import org.lwjgl.openxr.XrActionStateGetInfo;
 import org.lwjgl.openxr.XrActionSuggestedBinding;
 import org.lwjgl.openxr.XrActionsSyncInfo;
@@ -322,8 +324,23 @@ public class ActionOpenXRState extends BaseAppState{
         }
     }
 
-    public void doNotSupressRepeatedErrors(){
+    public void doNotSuppressRepeatedErrors(){
         suppressRepeatedErrors = false;
+    }
+
+    /**
+     * Gets the current state of the action (abstract version of a button press).
+     * <p>
+     * This is called for digital style actions (a button is pressed, or not)
+     * <p>
+     * {@link #registerActions} must have been called before using this method.
+     *
+     * @param actionSet The name of the action set. E.g. inGameActions
+     * @param actionName The name of the action. E.g. openInventory
+     * @return the DigitalActionState that has details on if the state has changed, what the state is etc.
+     */
+    public BooleanActionState getBooleanActionState(String actionSet, String actionName){
+        return getBooleanActionState(obtainActionHandle(actionSet, actionName), null);
     }
 
     /**
@@ -341,8 +358,8 @@ public class ActionOpenXRState extends BaseAppState{
      *                        and "/user/head". Can be null for no restriction
      * @return the DigitalActionState that has details on if the state has changed, what the state is etc.
      */
-    public DigitalActionState getDigitalActionState(String actionSet, String actionName, String restrictToInput){
-        return getDigitalActionState(obtainActionHandle(actionSet, actionName), restrictToInput);
+    public BooleanActionState getBooleanActionState(String actionSet, String actionName, String restrictToInput){
+        return getBooleanActionState(obtainActionHandle(actionSet, actionName), restrictToInput);
     }
 
     /**
@@ -359,18 +376,17 @@ public class ActionOpenXRState extends BaseAppState{
      *                        and "/user/head". Can be null for no restriction
      * @return the DigitalActionState that has details on if the state has changed, what the state is etc.
      */
-    public DigitalActionState getDigitalActionState(XrAction action, String restrictToInput){
+    public BooleanActionState getBooleanActionState(XrAction action, String restrictToInput){
         XrActionStateBoolean actionState = XrActionStateBoolean.create();
         XrActionStateGetInfo actionInfo = XrActionStateGetInfo.create();
         actionInfo.action(action);
 
         if (restrictToInput != null){
-
             actionInfo.subactionPath(pathToLong(restrictToInput, true));
         }
 
         withResponseCodeLogging("getActionState", XR10.xrGetActionStateBoolean(xrSession, actionInfo, actionState));
-        return new DigitalActionState(actionState.currentState(), actionState.changedSinceLastSync());
+        return new BooleanActionState(actionState.currentState(), actionState.changedSinceLastSync());
     }
 
     /**
@@ -489,64 +505,76 @@ public class ActionOpenXRState extends BaseAppState{
     /**
      * Gets the current state of the action (abstract version of a button press).
      * <p>
-     * This is called for analog style actions (most commonly joysticks, but button pressure can also be mapped in analog).
+     * This is called for analog style actions (most commonly triggers, but button pressure can also be mapped in analog).
      * <p>
      * This method is commonly called when it's not important which hand the action is bound to (e.g. if the thumb stick
      * is controlling a third-person character in-game that could be bound to either left or right hand and that would
-     * not matter).
+     * not matter, or if the action will only be bound to one hand anyway).
      * <p>
-     * If the handedness matters use {@link #getAnalogActionState(String, String)}
+     * If the handedness matters use {@link #getFloatActionState(String, String, String)}
      *
      * {@link #registerActions} must have been called before using this method.
      *
      * @param actionName The name of the action. E.g. /actions/main/in/openInventory
      * @return the AnalogActionState that has details on how much the state has changed, what the state is etc.
      */
-    /*
-    public AnalogActionState getAnalogActionState( String actionName ){
-        return getAnalogActionState(actionName, null);
+    public FloatActionState getFloatActionState(String actionSet, String actionName ){
+        return getFloatActionState(actionName, actionName, null);
     }
-    */
+
     /**
      * Gets the current state of the action (abstract version of a button press).
      * <p>
-     * This is called for analog style actions (most commonly joysticks, but button pressure can also be mapped in analog).
+     * This is called for analog style actions (most commonly triggers but button pressure can also be mapped in analog).
      * <p>
      * This method is commonly called when it is important which hand the action is found on. For example an "in universe"
      * joystick that has a hat control might (while you are holding it) bind to the on-controller hat, but only on the hand
      * holding it
      * <p>
-     * Note that restrictToInput only restricts, it must still be bound to the input you want to receive the input from in
-     * the action manifest default bindings.
+     * Note that restrictToInput only restricts, it must still be bound to the input you want to receive the input from
      * <p>
      * {@link #registerActions} must have been called before using this method.
      *
-     * @param actionName The name of the action. E.g. /actions/main/in/openInventory
+     * @param actionSet The action set.
+     * @param actionName The action name.
      * @param restrictToInput the input to restrict the action to. E.g. /user/hand/right. Or null, which means "any input"
      * @return the AnalogActionState that has details on how much the state has changed, what the state is etc.
      */
-    /*
-    public AnalogActionState getAnalogActionState(String actionName, String restrictToInput ){
-        assert inputMode == InputMode.ACTION_BASED : "registerActionManifest must be called before attempting to fetch action states";
-
-        LWJGLOpenVRAnalogActionData actionDataObjects = analogActions.get(actionName);
-        if (actionDataObjects == null){
-            //this is the first time the action has been used. We must obtain a handle to it to efficiently fetch it in future
-            long handle = fetchActionHandle(actionName);
-            actionDataObjects = new LWJGLOpenVRAnalogActionData(actionName, handle, InputAnalogActionData.create());
-            analogActions.put(actionName, actionDataObjects);
-        }
-        int errorCode = VRInput.VRInput_GetAnalogActionData(actionDataObjects.actionHandle, actionDataObjects.actionData, getOrFetchInputHandle(restrictToInput));
-
-        if (errorCode == VR.EVRInputError_VRInputError_WrongType){
-            throw new WrongActionTypeException("Attempted to fetch a non-analog state as if it is analog");
-        }else if (errorCode!=0){
-            logger.warning( "An error code of " + errorCode + " was reported while fetching an action state for " + actionName );
-        }
-
-        return new AnalogActionState(actionDataObjects.actionData.x(), actionDataObjects.actionData.y(), actionDataObjects.actionData.z(), actionDataObjects.actionData.deltaX(), actionDataObjects.actionData.deltaY(), actionDataObjects.actionData.deltaZ());
+    public FloatActionState getFloatActionState(String actionSet, String actionName, String restrictToInput ){
+        return getFloatActionState(obtainActionHandle(actionSet, actionName), restrictToInput);
     }
-    */
+
+    /**
+     * Gets the current state of the action (abstract version of a button press).
+     * <p>
+     * This is called for analog style actions (most commonly triggers but button pressure can also be mapped in analog).
+     * <p>
+     * This method is commonly called when it is important which hand the action is found on. For example an "in universe"
+     * joystick that has a hat control might (while you are holding it) bind to the on-controller hat, but only on the hand
+     * holding it
+     * <p>
+     * Note that restrictToInput only restricts, it must still be bound to the input you want to receive the input from
+     * <p>
+     * {@link #registerActions} must have been called before using this method.
+     *
+     * @param action The action.
+     * @param restrictToInput the input to restrict the action to. E.g. /user/hand/right. Or null, which means "any input"
+     * @return the AnalogActionState that has details on how much the state has changed, what the state is etc.
+     */
+    public FloatActionState getFloatActionState(XrAction action, String restrictToInput ){
+
+        XrActionStateFloat actionState = XrActionStateFloat.create();
+        XrActionStateGetInfo actionInfo = XrActionStateGetInfo.create();
+        actionInfo.action(action);
+
+        if (restrictToInput != null){
+            actionInfo.subactionPath(pathToLong(restrictToInput, true));
+        }
+
+        withResponseCodeLogging("getActionState", XR10.xrGetActionStateFloat(xrSession, actionInfo, actionState));
+        return new FloatActionState(actionState.currentState(), actionState.changedSinceLastSync());
+    }
+
 
     /**
      * Triggers a haptic action (aka a vibration).
