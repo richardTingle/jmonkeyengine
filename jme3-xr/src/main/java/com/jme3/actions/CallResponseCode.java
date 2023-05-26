@@ -4,6 +4,7 @@ import org.lwjgl.openxr.XR10;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * This class maps the error codes found within XR10 to be able to give better error messages.
@@ -77,12 +78,12 @@ public class CallResponseCode{
 
     private final String formattedErrorMessage;
 
-    public static CallResponseCode getResponseCode(int errorCode){
+    public static Optional<CallResponseCode> getResponseCode(int errorCode){
         CallResponseCode responseCode = responseCodes.get(errorCode);
         if (responseCode!=null){
-            return responseCode;
+            return Optional.of(responseCode);
         }else {
-            return new CallResponseCode(errorCode, "UNMAPPED_ERROR_"+errorCode, "This error code was not mapped to a known error condition.");
+            return Optional.empty();
         }
     }
 
@@ -94,7 +95,7 @@ public class CallResponseCode{
         this.formattedErrorMessage = errorTextId + "(" + errorCode + "): " + errorMessage;
     }
 
-    public String getFormattedErrorMessage(){
+    public String getFullFormattedErrorMessage(){
         return formattedErrorMessage;
     }
 
@@ -102,4 +103,15 @@ public class CallResponseCode{
         return isAnErrorCondition;
     }
 
+    public int getErrorCode(){
+        return errorCode;
+    }
+
+    public String getErrorTextId(){
+        return errorTextId;
+    }
+
+    public String getErrorMessage(){
+        return errorMessage;
+    }
 }
