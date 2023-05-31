@@ -2,6 +2,11 @@ package com.jme3.actions.actionprofile;
 
 import com.jme3.actions.ActionType;
 import com.jme3.actions.HandSide;
+import com.jme3.actions.controllerprofile.HtcViveController;
+import com.jme3.actions.controllerprofile.KhronosSimpleController;
+import com.jme3.actions.controllerprofile.MixedRealityMotionController;
+import com.jme3.actions.controllerprofile.OculusTouchController;
+import com.jme3.actions.controllerprofile.ValveIndexController;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -128,6 +133,23 @@ public class Action{
         }
 
         /**
+         * Binds all the devices this library knows about (and that have haptics) to this action for both hands.
+         */
+        public ActionBuilder withSuggestAllKnownHapticBindings(){
+            withSuggestedBinding(OculusTouchController.PROFILE, OculusTouchController.pathBuilder().leftHand().haptic());
+            withSuggestedBinding(OculusTouchController.PROFILE, OculusTouchController.pathBuilder().rightHand().haptic());
+            withSuggestedBinding(HtcViveController.PROFILE, HtcViveController.pathBuilder().leftHand().haptic());
+            withSuggestedBinding(HtcViveController.PROFILE, HtcViveController.pathBuilder().rightHand().haptic());
+            withSuggestedBinding(KhronosSimpleController.PROFILE, KhronosSimpleController.pathBuilder().leftHand().haptic());
+            withSuggestedBinding(KhronosSimpleController.PROFILE, KhronosSimpleController.pathBuilder().rightHand().haptic());
+            withSuggestedBinding(MixedRealityMotionController.PROFILE, MixedRealityMotionController.pathBuilder().leftHand().haptic());
+            withSuggestedBinding(MixedRealityMotionController.PROFILE, MixedRealityMotionController.pathBuilder().rightHand().haptic());
+            withSuggestedBinding(ValveIndexController.PROFILE, ValveIndexController.pathBuilder().leftHand().haptic());
+            withSuggestedBinding(ValveIndexController.PROFILE, ValveIndexController.pathBuilder().rightHand().haptic());
+            return this;
+        }
+
+        /**
          * Sub action paths are things like "/user/hand/left", for use when restricting actions to a specific input source.
          * This is defaulted to ["/user/hand/left", "/user/hand/right"] and there is usually no reason to change it.
          */
@@ -150,6 +172,7 @@ public class Action{
             }
             return new Action(actionName, translatedName, actionType, suggestedBindings, supportedSubActionPaths);
         }
+
     }
 
 

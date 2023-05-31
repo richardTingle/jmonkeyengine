@@ -1,5 +1,8 @@
 package com.jme3.actions.controllerprofile;
 
+import static com.jme3.actions.controllerprofile.MixedRealityMotionController.InteractionProfiles.LEFT_HAND;
+import static com.jme3.actions.controllerprofile.MixedRealityMotionController.InteractionProfiles.RIGHT_HAND;
+
 public class MixedRealityMotionController{
     public static final String PROFILE = "/interaction_profiles/microsoft/motion_controller";
 
@@ -29,6 +32,13 @@ public class MixedRealityMotionController{
     }
 
     public static class BindingPathBuilder{
+
+        public BindingPathBuilderHand leftHand(){
+            return new BindingPathBuilderHand(LEFT_HAND);
+        }
+        public BindingPathBuilderHand rightHand(){
+            return new BindingPathBuilderHand(RIGHT_HAND);
+        }
         public BindingPathBuilderHand hand(String handPath){
             return new BindingPathBuilderHand(handPath);
         }

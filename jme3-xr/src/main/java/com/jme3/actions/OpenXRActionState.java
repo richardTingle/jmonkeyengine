@@ -27,6 +27,9 @@ import org.lwjgl.openxr.XrActionStateGetInfo;
 import org.lwjgl.openxr.XrActionSuggestedBinding;
 import org.lwjgl.openxr.XrActionsSyncInfo;
 import org.lwjgl.openxr.XrActiveActionSet;
+import org.lwjgl.openxr.XrHapticActionInfo;
+import org.lwjgl.openxr.XrHapticBaseHeader;
+import org.lwjgl.openxr.XrHapticVibration;
 import org.lwjgl.openxr.XrInstance;
 import org.lwjgl.openxr.XrInteractionProfileSuggestedBinding;
 import org.lwjgl.openxr.XrSession;
@@ -54,7 +57,7 @@ import java.util.logging.Logger;
  * <p>
  * See <a href="https://registry.khronos.org/OpenXR/specs/1.0/html/xrspec.html#_action_overview">khronos spec action_overview</a>
  */
-public class ActionOpenXRState extends BaseAppState{
+public class OpenXRActionState extends BaseAppState{
 
     boolean suppressRepeatedErrors = true;
 
@@ -64,7 +67,7 @@ public class ActionOpenXRState extends BaseAppState{
 
     private static final Quaternion HALF_ROTATION_ABOUT_Y = new Quaternion();
 
-    private static final Logger logger = Logger.getLogger(ActionOpenXRState.class.getName());
+    private static final Logger logger = Logger.getLogger(OpenXRActionState.class.getName());
 
     /**
      * A map of the action name to the objects/data required to read states from lwjgl
@@ -118,7 +121,7 @@ public class ActionOpenXRState extends BaseAppState{
         HALF_ROTATION_ABOUT_Y.fromAngleAxis(FastMath.PI, Vector3f.UNIT_Y);
     }
 
-    public ActionOpenXRState(XrSession xrSession, XrInstance xrInstance){
+    public OpenXRActionState(XrSession xrSession, XrInstance xrInstance){
         super(ID);
         this.xrSession = xrSession;
         this.xrInstance = xrInstance;
@@ -392,7 +395,7 @@ public class ActionOpenXRState extends BaseAppState{
     /**
      * This allows the XrAction object to be obtained for a particular action set and action name.
      * This handle can be used instead of quoting the name and set every time (it's also marginally faster
-     * to hold onto these XrAction and use them directly rather than having {@link ActionOpenXRState} look them up)
+     * to hold onto these XrAction and use them directly rather than having {@link OpenXRActionState} look them up)
      */
     public XrAction obtainActionHandle(String actionSet, String actionName){
         return actions.get(actionSet).get(actionName);
@@ -499,9 +502,8 @@ public class ActionOpenXRState extends BaseAppState{
         //the velocity and rotational velocity are in the wrong coordinate systems. This is wrong and a bug
         return new PoseActionState(pose, worldRelativePosition, worldRelativeRotation, worldRelativeVelocity, worldRelativeAngularVelocity);
     }
+    */
 
-
-     */
     /**
      * Gets the current state of the action (abstract version of a button press).
      * <p>
@@ -580,16 +582,36 @@ public class ActionOpenXRState extends BaseAppState{
      * Triggers a haptic action (aka a vibration).
      * <p>
      * Note if you want a haptic action in only one hand that is done either by only binding the action to one hand in
-     * the action manifest's standard bindings or by binding to both and using {@link #triggerHapticAction(String, float, float, float, String)}
+     * the action manifest's standard bindings or by binding to both and using {@link #triggerHapticAction(String, String, float, float, float, String)}
      * to control which input it gets set to at run time
      *
-     * @param actionName The name of the action. Will be something like /actions/main/out/vibrate
+     * @param actionSet The name of the action Set. Will be something like main or an area of your application.
+     * @param actionName The name of the action. Will be something like vibrate
      * @param duration how long in seconds the
      * @param frequency in cycles per second
      * @param amplitude between 0 and 1
      */
-    public void triggerHapticAction( String actionName, float duration, float frequency, float amplitude){
-        triggerHapticAction( actionName, duration, frequency, amplitude, null );
+    public void triggerHapticAction(String actionSet, String actionName, float duration, float frequency, float amplitude){
+        triggerHapticAction( actionSet, actionName, duration, frequency, amplitude, null );
+    }
+
+    /**
+     * Triggers a haptic action (aka a vibration) restricted to just one input (e.g. left or right hand).
+     * <p>
+     * Note that restrictToInput only restricts, it must still be bound to the input you want to send the haptic to in
+     * the action manifest default bindings.
+     * <p>
+     * This method is typically used to bind the haptic to both hands then decide at run time which hand to send to
+     *
+     * @param actionSet The name of the action Set. Will be something like main or an area of your application.
+     * @param actionName The name of the action. Will be something like vibrate
+     * @param duration how long in seconds the
+     * @param frequency in cycles per second
+     * @param amplitude between 0 and 1
+     * @param restrictToInput the input to restrict the action to. E.g. /user/hand/right, /user/hand/left. Or null, which means "both hands"
+     */
+    public void triggerHapticAction(String actionSet, String actionName, float duration, float frequency, float amplitude, String restrictToInput){
+        triggerHapticAction( obtainActionHandle(actionSet,actionName), duration, frequency, amplitude, null );
     }
 
     /**
@@ -600,14 +622,29 @@ public class ActionOpenXRState extends BaseAppState{
      * <p>
      * This method is typically used to bind the haptic to both hands then decide at run time which hand to sent to     *
      *
-     * @param actionName The name of the action. Will be something like /actions/main/out/vibrate
+     * @param action The action for haptic vibration.
      * @param duration how long in seconds the
-     * @param frequency in cycles per second
+     * @param frequency in cycles per second (aka Hz)
      * @param amplitude between 0 and 1
-     * @param restrictToInput the input to restrict the action to. E.g. /user/hand/right, /user/hand/left. Or null, which means "any input"
+     * @param restrictToInput the input to restrict the action to. E.g. /user/hand/right, /user/hand/left. Or null, which means "both hands"
      */
-    public void triggerHapticAction(String actionName, float duration, float frequency, float amplitude, String restrictToInput ){
+    public void triggerHapticAction(XrAction action, float duration, float frequency, float amplitude, String restrictToInput ){
+        XrHapticVibration vibration = XrHapticVibration.create()
+                .type(XR10.XR_TYPE_HAPTIC_VIBRATION)
+                .duration((long)(duration * 1_000_000_000))  // Duration in nanoseconds
+                .frequency(frequency)
+                .amplitude(amplitude);  // Amplitude in normalized units
 
+        XrHapticActionInfo hapticActionInfo = XrHapticActionInfo.malloc()
+                .type(XR10.XR_TYPE_HAPTIC_ACTION_INFO)
+                .action(action);
+
+        if (restrictToInput!=null){
+            hapticActionInfo.subactionPath(pathToLong(restrictToInput, true));
+        }
+        XrHapticBaseHeader hapticBaseHeader = XrHapticBaseHeader.create(vibration);
+
+        withResponseCodeLogging("Haptic Vibration", XR10.xrApplyHapticFeedback(xrSession, hapticActionInfo, hapticBaseHeader));
     }
 
     @Override
@@ -739,57 +776,6 @@ public class ActionOpenXRState extends BaseAppState{
         }else{
             return skeletonActions.get(actionName);
         }
-    }
-    */
-
-    /*
-    private VRActiveActionSet.Buffer getOrBuildActionSets(){
-
-        if (activeActionSets != null){
-            return activeActionSets;
-        }
-
-        Map<String, String> actionSetAndRestriction = new HashMap<>();
-
-        Set<String> allActionSets = new HashSet<>();
-        allActionSets.addAll(leftHandActionSets);
-        allActionSets.addAll(rightHandActionSets);
-        allActionSets.addAll(bothHandActionSets);
-
-        for(String actionSet: allActionSets){
-            if (bothHandActionSets.contains(actionSet) || (leftHandActionSets.contains(actionSet) && rightHandActionSets.contains(actionSet))){
-                actionSetAndRestriction.put(actionSet, null);
-            }else if (leftHandActionSets.contains(actionSet)){
-                actionSetAndRestriction.put(actionSet, HandSide.LEFT.restrictToInputString);
-            }else{
-                actionSetAndRestriction.put(actionSet, HandSide.RIGHT.restrictToInputString);
-            }
-        }
-
-        actionSetAndRestriction.keySet().forEach(actionSet -> {
-            long actionSetHandle;
-            if(!actionSetHandles.containsKey(actionSet)){
-                LongBuffer longBuffer = BufferUtils.createLongBuffer(1);
-                int errorCode = VRInput.VRInput_GetActionHandle(actionSet, longBuffer);
-                if(errorCode != 0){
-                    logger.warning("An error code of " + errorCode + " was reported while fetching an action set handle for " + actionSet);
-                }
-                actionSetHandle = longBuffer.get(0);
-                actionSetHandles.put(actionSet, actionSetHandle);
-            }
-        });
-
-        activeActionSets = VRActiveActionSet.create(actionSetAndRestriction.size());
-
-        Iterator<Map.Entry<String, String>> iterator = actionSetAndRestriction.entrySet().iterator();
-
-        for(VRActiveActionSet actionSetItem : activeActionSets){
-            Map.Entry<String, String> entrySetAndRestriction = iterator.next();
-            actionSetItem.ulActionSet(actionSetHandles.get(entrySetAndRestriction.getKey()));
-            actionSetItem.ulRestrictedToDevice(getOrFetchInputHandle(entrySetAndRestriction.getValue()));
-        }
-
-        return activeActionSets;
     }
     */
 

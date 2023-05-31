@@ -2,7 +2,7 @@ package com.jme3.input.xr;
 
 import java.util.ArrayList;
 
-import com.jme3.actions.ActionOpenXRState;
+import com.jme3.actions.OpenXRActionState;
 import com.jme3.app.SimpleApplication;
 import com.jme3.math.Quaternion;
 import com.jme3.math.Vector3f;
@@ -53,8 +53,8 @@ public class XrHmd
 		HelloOpenXRGL xr = ((LwjglWindowXr)app.getContext()).getXr();
 		xr.setHmd(xrHmd);
 
-		ActionOpenXRState actionOpenXRState = new ActionOpenXRState(xr.getXrSession(), xr.getXrInstance());
-		app.getStateManager().attach(actionOpenXRState);
+		OpenXRActionState openXRActionState = new OpenXRActionState(xr.getXrSession(), xr.getXrInstance());
+		app.getStateManager().attach(openXRActionState);
 
 		return xrHmd;
 	}
