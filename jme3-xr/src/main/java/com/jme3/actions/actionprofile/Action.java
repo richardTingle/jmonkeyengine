@@ -150,6 +150,72 @@ public class Action{
         }
 
         /**
+         * Binds all the devices this library knows about (and that have aim poses) to this action for both hands.
+         * <p>
+         * Represents the position and orientation of the user's hand grip.
+         * <p>
+         * This pose is typically derived from a hand-held controller's physical design and is generally aligned with the device's handle.
+         * In many cases, this pose aligns with the location of the user's hand when they are holding the device naturally.
+         * <p>
+         * The orientation of this pose is typically as follows:
+         * - The X-axis points to the right of the handle.
+         * - The Y-axis points up along the handle.
+         * - The Z-axis points in the direction opposite to the front of the handle.
+         * <p>
+         * This pose is commonly used for:
+         * - Placing virtual objects in the user's hand.
+         * - Representing the user's hand position in the virtual world.
+         * <p>
+         * Note: The exact position and orientation can vary between devices. Always test with the specific device to ensure it behaves as expected.
+         */
+        public ActionBuilder withSuggestAllKnownGripPoseBindings(){
+            withSuggestedBinding(OculusTouchController.PROFILE, OculusTouchController.pathBuilder().leftHand().gripPose());
+            withSuggestedBinding(OculusTouchController.PROFILE, OculusTouchController.pathBuilder().rightHand().gripPose());
+            withSuggestedBinding(HtcViveController.PROFILE, HtcViveController.pathBuilder().leftHand().gripPose());
+            withSuggestedBinding(HtcViveController.PROFILE, HtcViveController.pathBuilder().rightHand().gripPose());
+            withSuggestedBinding(KhronosSimpleController.PROFILE, KhronosSimpleController.pathBuilder().leftHand().gripPose());
+            withSuggestedBinding(KhronosSimpleController.PROFILE, KhronosSimpleController.pathBuilder().rightHand().gripPose());
+            withSuggestedBinding(MixedRealityMotionController.PROFILE, MixedRealityMotionController.pathBuilder().leftHand().gripPose());
+            withSuggestedBinding(MixedRealityMotionController.PROFILE, MixedRealityMotionController.pathBuilder().rightHand().gripPose());
+            withSuggestedBinding(ValveIndexController.PROFILE, ValveIndexController.pathBuilder().leftHand().gripPose());
+            withSuggestedBinding(ValveIndexController.PROFILE, ValveIndexController.pathBuilder().rightHand().gripPose());
+            return this;
+        }
+
+        /**
+         * Binds all the devices this library knows about (and that have aim poses) to this action for both hands.
+         * <p>
+         * Represents the position and orientation of the user's aiming direction.
+         * <p>
+         * This pose is typically derived from a hand-held controller's physical design and is generally aligned with the device's primary pointing direction.
+         * In many cases, this pose aligns with the direction the user is pointing the device, like a laser pointer.
+         * <p>
+         * The orientation of this pose is typically as follows:
+         * - The X-axis points to the right of the controller (as viewed from the back of the controller).
+         * - The Y-axis points up from the top of the controller.
+         * - The Z-axis points in the direction the user is pointing the controller (i.e., from the back of the controller towards the front).
+         * <p>
+         * This pose is commonly used for:
+         * - Directing the user's gaze or aim in the virtual world.
+         * - Placing the origin of a raycast for selecting or interacting with virtual objects.
+         * <p>
+         * Note: The exact position and orientation can vary between devices. Always test with the specific device to ensure it behaves as expected.
+         */
+        public ActionBuilder withSuggestAllKnownAimPoseBindings(){
+            withSuggestedBinding(OculusTouchController.PROFILE, OculusTouchController.pathBuilder().leftHand().aimPose());
+            withSuggestedBinding(OculusTouchController.PROFILE, OculusTouchController.pathBuilder().rightHand().aimPose());
+            withSuggestedBinding(HtcViveController.PROFILE, HtcViveController.pathBuilder().leftHand().aimPose());
+            withSuggestedBinding(HtcViveController.PROFILE, HtcViveController.pathBuilder().rightHand().aimPose());
+            withSuggestedBinding(KhronosSimpleController.PROFILE, KhronosSimpleController.pathBuilder().leftHand().aimPose());
+            withSuggestedBinding(KhronosSimpleController.PROFILE, KhronosSimpleController.pathBuilder().rightHand().aimPose());
+            withSuggestedBinding(MixedRealityMotionController.PROFILE, MixedRealityMotionController.pathBuilder().leftHand().aimPose());
+            withSuggestedBinding(MixedRealityMotionController.PROFILE, MixedRealityMotionController.pathBuilder().rightHand().aimPose());
+            withSuggestedBinding(ValveIndexController.PROFILE, ValveIndexController.pathBuilder().leftHand().aimPose());
+            withSuggestedBinding(ValveIndexController.PROFILE, ValveIndexController.pathBuilder().rightHand().aimPose());
+            return this;
+        }
+
+        /**
          * Sub action paths are things like "/user/hand/left", for use when restricting actions to a specific input source.
          * This is defaulted to ["/user/hand/left", "/user/hand/right"] and there is usually no reason to change it.
          */

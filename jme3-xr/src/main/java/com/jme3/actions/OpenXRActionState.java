@@ -6,6 +6,7 @@ import com.jme3.actions.actionprofile.ActionSet;
 import com.jme3.actions.actionprofile.SuggestedBindingsProfileView;
 import com.jme3.actions.state.BooleanActionState;
 import com.jme3.actions.state.FloatActionState;
+import com.jme3.actions.state.PoseActionState;
 import com.jme3.app.Application;
 
 import com.jme3.app.state.BaseAppState;
@@ -13,6 +14,7 @@ import com.jme3.app.state.BaseAppState;
 import com.jme3.math.FastMath;
 import com.jme3.math.Quaternion;
 import com.jme3.math.Vector3f;
+import com.jme3.system.lwjgl.openxr.HelloOpenXRGL;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.PointerBuffer;
 
@@ -21,6 +23,7 @@ import org.lwjgl.openxr.XrAction;
 import org.lwjgl.openxr.XrActionCreateInfo;
 import org.lwjgl.openxr.XrActionSet;
 import org.lwjgl.openxr.XrActionSetCreateInfo;
+import org.lwjgl.openxr.XrActionSpaceCreateInfo;
 import org.lwjgl.openxr.XrActionStateBoolean;
 import org.lwjgl.openxr.XrActionStateFloat;
 import org.lwjgl.openxr.XrActionStateGetInfo;
@@ -32,8 +35,15 @@ import org.lwjgl.openxr.XrHapticBaseHeader;
 import org.lwjgl.openxr.XrHapticVibration;
 import org.lwjgl.openxr.XrInstance;
 import org.lwjgl.openxr.XrInteractionProfileSuggestedBinding;
+import org.lwjgl.openxr.XrPosef;
+import org.lwjgl.openxr.XrQuaternionf;
+import org.lwjgl.openxr.XrReferenceSpaceCreateInfo;
 import org.lwjgl.openxr.XrSession;
 import org.lwjgl.openxr.XrSessionActionSetsAttachInfo;
+import org.lwjgl.openxr.XrSpace;
+import org.lwjgl.openxr.XrSpaceLocation;
+import org.lwjgl.openxr.XrSpaceVelocity;
+import org.lwjgl.openxr.XrVector3f;
 import org.lwjgl.system.MemoryUtil;
 
 import java.io.PrintWriter;
@@ -48,6 +58,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -58,6 +69,16 @@ import java.util.logging.Logger;
  * See <a href="https://registry.khronos.org/OpenXR/specs/1.0/html/xrspec.html#_action_overview">khronos spec action_overview</a>
  */
 public class OpenXRActionState extends BaseAppState{
+
+    private static XrPosef identityPose;
+
+    static{
+        XrVector3f position = XrVector3f.calloc().set(0.0f, 0.0f, 0.0f);
+        XrQuaternionf orientation = XrQuaternionf.calloc().set(0.0f, 0.0f, 0.0f, 1.0f);
+        identityPose = XrPosef.create();
+        identityPose.position$(position);
+        identityPose.orientation(orientation);
+    }
 
     boolean suppressRepeatedErrors = true;
 
@@ -70,24 +91,9 @@ public class OpenXRActionState extends BaseAppState{
     private static final Logger logger = Logger.getLogger(OpenXRActionState.class.getName());
 
     /**
-     * A map of the action name to the objects/data required to read states from lwjgl
+     * A map of the action -> input -> handle for action space. Typically one for each hand.
      */
-    //private final Map<String, LWJGLOpenVRDigitalActionData> digitalActions = new HashMap<>();
-
-    /**
-     * A map of the action name to the objects/data required to read states from lwjgl
-     */
-    //private final Map<String, LWJGLOpenVRAnalogActionData> analogActions = new HashMap<>();
-
-    /**
-     * A map of the action name to the handle of a haptic action
-     */
-    private final Map<String, Long> hapticActionHandles = new HashMap<>();
-
-    /**
-     * A map of the action set name to the handle that is used to refer to it when talking to LWJGL
-     */
-    private final Map<String, Long> actionSetHandles = new HashMap<>();
+    private final Map<XrAction,Map<String, Long>> poseActionInputHandles = new HashMap<>();
 
     /**
      * These are the cached skeleton data (what bones there are, what the handles are etc)
@@ -102,8 +108,15 @@ public class OpenXRActionState extends BaseAppState{
      */
     private final Map<String, Long> pathCache = new HashMap<>();
 
+    /**
+     * Holds things like XR10.XR_REFERENCE_SPACE_TYPE_STAGE -> the memory handle of the reference space.
+     */
+    private final Map<Long, Long> referenceSpaceHandles = new HashMap<>();
+
     private final XrSession xrSession;
     private final XrInstance xrInstance;
+
+    private final HelloOpenXRGL openXRGL;
 
     private Map<String, XrActionSet> actionSets;
 
@@ -121,10 +134,11 @@ public class OpenXRActionState extends BaseAppState{
         HALF_ROTATION_ABOUT_Y.fromAngleAxis(FastMath.PI, Vector3f.UNIT_Y);
     }
 
-    public OpenXRActionState(XrSession xrSession, XrInstance xrInstance){
+    public OpenXRActionState(XrSession xrSession, XrInstance xrInstance, HelloOpenXRGL openXRGL){
         super(ID);
         this.xrSession = xrSession;
         this.xrInstance = xrInstance;
+        this.openXRGL = openXRGL;
     }
 
     @Override
@@ -189,7 +203,6 @@ public class OpenXRActionState extends BaseAppState{
                 xrActionCreateInfo.actionName(stringToByte(action.getActionName()));
                 xrActionCreateInfo.actionType(action.getActionType().getOpenXrOption());
                 xrActionCreateInfo.localizedActionName(stringToByte(action.getTranslatedName()));
-
                 List<String> supportedSubActionPaths = action.getSupportedSubActionPaths();
                 if (!action.getSupportedSubActionPaths().isEmpty()){
                     LongBuffer subActionsLongBuffer = subActionPaths.computeIfAbsent(supportedSubActionPaths, paths -> {
@@ -207,6 +220,25 @@ public class OpenXRActionState extends BaseAppState{
                 withResponseCodeLogging("xrStringToPath", XR10.xrCreateAction(xrActionSet, xrActionCreateInfo, actionPointer));
                 XrAction xrAction = new XrAction(actionPointer.get(), xrActionSet);
                 actions.computeIfAbsent(actionSet.getName(), name -> new HashMap<>()).put(action.getActionName(), xrAction);
+
+                if (action.getActionType() == ActionType.POSE){
+                    if (action.getSupportedSubActionPaths().isEmpty()){
+                        logger.warning(actionSet.getName() +":" + action.getActionName() + " is a pose action but does not have any sub action paths");
+                    }
+                    for(String input : action.getSupportedSubActionPaths()){
+
+                        XrActionSpaceCreateInfo actionSpaceCreateInfo = XrActionSpaceCreateInfo.create()
+                                .type(XR10.XR_TYPE_ACTION_SPACE_CREATE_INFO)
+                                .action(xrAction)
+                                .subactionPath(pathToLong(input, true));
+                        PointerBuffer spacePointer = BufferUtils.createPointerBuffer(1);
+
+                        withResponseCodeLogging("Create pose space", XR10.xrCreateActionSpace(xrSession, actionSpaceCreateInfo, spacePointer));
+
+                        poseActionInputHandles.computeIfAbsent(xrAction, key -> new HashMap<>()).put(input, spacePointer.get(0));
+                    }
+
+                }
 
                 xrActionCreateInfo.close();
             }
@@ -463,46 +495,74 @@ public class OpenXRActionState extends BaseAppState{
      * <p>
      * This returns the pose in world coordinate system
      *
-     * @param actionName the action name that has been bound to a pose in the action manifest
+     * @param actionSet the action set that has this action
+     * @param actionName the action that has been bound to a pose in the action manifest
      * @return the PoseActionState
      */
-    /*
-    public PoseActionState getPose(String actionName){
 
-        InputPoseActionData inputPose = InputPoseActionData.create();
-
-        VRInput.VRInput_GetPoseActionDataForNextFrame(fetchActionHandle(actionName), environment.isSeatedExperience() ? VR.ETrackingUniverseOrigin_TrackingUniverseSeated : VR.ETrackingUniverseOrigin_TrackingUniverseStanding, inputPose, getOrFetchInputHandle(null));
-
-        HmdMatrix34 hmdMatrix34 = inputPose.pose().mDeviceToAbsoluteTracking();
-
-        Matrix4f pose = LWJGLOpenVR.convertSteamVRMatrix3ToMatrix4f(hmdMatrix34, new Matrix4f() );
-
-        HmdVector3 velocityHmd = inputPose.pose().vVelocity();
-        Vector3f velocity = new Vector3f(velocityHmd.v(0), velocityHmd.v(1), velocityHmd.v(2));
-        HmdVector3 angularVelocityHmd =inputPose.pose().vAngularVelocity();
-        Vector3f angularVelocity = new Vector3f(angularVelocityHmd.v(0), angularVelocityHmd.v(1), angularVelocityHmd.v(2));
-        Vector3f position = pose.toTranslationVector();
-        Quaternion rotation = pose.toRotationQuat();
-
-        Vector3f observerPosition = getObserverPosition();
-        Quaternion observerRotation = getObserverRotation();
-
-        Node calculationNode = new Node();
-        //the openVR and JMonkey define "not rotated" to be a different rotation, the HALF_ROTATION_ABOUT_Y corrects that
-        calculationNode.setLocalRotation(HALF_ROTATION_ABOUT_Y.mult(observerRotation));
-
-        Vector3f worldRelativeVelocity =  calculationNode.localToWorld(velocity, null);
-        Vector3f worldRelativeAngularVelocity = calculationNode.localToWorld(angularVelocity, null);
-
-        calculationNode.setLocalTranslation(observerPosition);
-
-        Vector3f worldRelativePosition = calculationNode.localToWorld(position, null);
-        Quaternion worldRelativeRotation = HALF_ROTATION_ABOUT_Y.mult(observerRotation).mult(rotation);
-
-        //the velocity and rotational velocity are in the wrong coordinate systems. This is wrong and a bug
-        return new PoseActionState(pose, worldRelativePosition, worldRelativeRotation, worldRelativeVelocity, worldRelativeAngularVelocity);
+    public Optional<PoseActionState> getPose(String actionSet, String actionName, String input){
+        return getPose(obtainActionHandle(actionSet, actionName), input, true);
     }
-    */
+
+    /**
+     * A pose is where a hand is, and what its rotation is.
+     * <p>
+     * Pose means the bulk position and rotation of the hand. Be aware that the direction the hand is pointing by this
+     * may be surprising, the relative bone positions also need to be taken into account for this to really make sense.
+     * <p>
+     * This returns the pose in world coordinate system
+     *
+     * @param action the action that has been bound to a pose in the action manifest
+     * @param stageRelative if the output should be relative to the stage origin (at the feet, in the centre of the device defined
+     *                      stage). If not will be relative to the local origin (the headsets position/rotation at start up time
+     *                      - excluding pitch/roll).
+     * @return the PoseActionState
+     */
+
+    public Optional<PoseActionState> getPose(XrAction action, String input, boolean stageRelative){
+
+        if (openXRGL.getPredictedFrameTime()==0){
+            //not set up yet
+            return Optional.empty();
+        }
+
+        XrSpaceVelocity spaceVelocity = XrSpaceVelocity.create()
+                .type(XR10.XR_TYPE_SPACE_VELOCITY);
+
+        XrSpaceLocation spaceLocation = XrSpaceLocation.create()
+                .type(XR10.XR_TYPE_SPACE_LOCATION)
+                .next(spaceVelocity);
+
+        long spaceHandle = poseActionInputHandles.get(action).get(input);
+
+        XrSpace poseSpace = new XrSpace(spaceHandle, xrSession);
+        long handleForReferenceSpace = getOrCreateReferenceSpaceHandle(stageRelative?XR10.XR_REFERENCE_SPACE_TYPE_STAGE:XR10.XR_REFERENCE_SPACE_TYPE_LOCAL);
+        XrSpace relativeToSpace = new XrSpace(handleForReferenceSpace, xrSession);
+        withResponseCodeLogging("getPose", XR10.xrLocateSpace(poseSpace, relativeToSpace, openXRGL.getPredictedFrameTime(), spaceLocation));
+
+        if ((spaceLocation.locationFlags() & XR10.XR_SPACE_LOCATION_POSITION_VALID_BIT) != 0 &&
+                (spaceLocation.locationFlags() & XR10.XR_SPACE_LOCATION_ORIENTATION_VALID_BIT) != 0) {
+            // The pose is valid. You can use spaceLocation.pose() to get the position and orientation of the hand.
+            XrPosef handPose = spaceLocation.pose();
+            Vector3f position = xrVector3fToJME(handPose.position$());
+            Quaternion rotation = xrQuaternionToJme(handPose.orientation());
+
+            if ((spaceVelocity.velocityFlags() & XR10.XR_SPACE_VELOCITY_ANGULAR_VALID_BIT) != 0 && (spaceVelocity.velocityFlags() & XR10.XR_SPACE_VELOCITY_LINEAR_VALID_BIT) != 0) {
+                // full data available, yay!
+                return Optional.of(new PoseActionState(position, rotation, xrVector3fToJME(spaceVelocity.linearVelocity()), xrVector3fToJME(spaceVelocity.angularVelocity())));
+            }else{
+                //fall back to just the position data
+                return Optional.of(new PoseActionState(position, rotation));
+            }
+
+        } else {
+            // The pose is not valid. The hand may be out of tracking range. Probably fine
+            if (logger.isLoggable(Level.FINE)){
+                logger.fine("Hand pose is not valid. This may just be out of tracking range.");
+            }
+            return Optional.empty();
+        }
+    }
 
     /**
      * Gets the current state of the action (abstract version of a button press).
@@ -611,7 +671,7 @@ public class OpenXRActionState extends BaseAppState{
      * @param restrictToInput the input to restrict the action to. E.g. /user/hand/right, /user/hand/left. Or null, which means "both hands"
      */
     public void triggerHapticAction(String actionSet, String actionName, float duration, float frequency, float amplitude, String restrictToInput){
-        triggerHapticAction( obtainActionHandle(actionSet,actionName), duration, frequency, amplitude, null );
+        triggerHapticAction( obtainActionHandle(actionSet,actionName), duration, frequency, amplitude, restrictToInput );
     }
 
     /**
@@ -779,6 +839,27 @@ public class OpenXRActionState extends BaseAppState{
     }
     */
 
+    /**
+     * @param referenceSpaceEnum Things like XR10.XR_REFERENCE_SPACE_TYPE_STAGE
+     * @return
+     */
+    private long getOrCreateReferenceSpaceHandle(long referenceSpaceEnum){
+        if (this.referenceSpaceHandles.containsKey(referenceSpaceEnum)){
+            return referenceSpaceHandles.get(referenceSpaceEnum);
+        }
+
+        XrReferenceSpaceCreateInfo spaceInfo = XrReferenceSpaceCreateInfo.create()
+                .type(XR10.XR_TYPE_REFERENCE_SPACE_CREATE_INFO)
+                .referenceSpaceType(XR10.XR_REFERENCE_SPACE_TYPE_STAGE)
+                .poseInReferenceSpace(identityPose);
+        PointerBuffer space = BufferUtils.createPointerBuffer(1);
+        withResponseCodeLogging("Get space for " +referenceSpaceEnum, XR10.xrCreateReferenceSpace(xrSession, spaceInfo, space));
+        long handle = space.get(0);
+        referenceSpaceHandles.put(referenceSpaceEnum, handle);
+
+        return handle;
+    }
+
     private long pathToLong(String path, boolean cache){
         if (cache){
             Long handle = pathCache.get(path);
@@ -796,4 +877,11 @@ public class OpenXRActionState extends BaseAppState{
         return pathHandle;
     }
 
+    private Vector3f xrVector3fToJME(XrVector3f in){
+        return new Vector3f(in.x(), in.y(), in.z());
+    }
+
+    private Quaternion xrQuaternionToJme(XrQuaternionf in){
+        return new Quaternion(in.x(), in.y(), in.z(), in.w());
+    }
 }

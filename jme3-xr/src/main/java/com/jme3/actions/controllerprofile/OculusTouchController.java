@@ -35,7 +35,7 @@ public class OculusTouchController{
         public static final String THUMB_STICK_CLICK ="/input/thumbstick/click";
         public static final String THUMB_STICK_TOUCH ="/input/thumbstick/touch";
         public static final String THUMB_BREST_TOUCH ="/input/thumbrest/touch";
-        public static final String GRIP_POST ="/input/grip/pose";
+        public static final String GRIP_POSE ="/input/grip/pose";
         public static final String AIM_POSE ="/input/aim/pose";
         public static final String HAPTIC ="/output/haptic";
     }
@@ -133,8 +133,8 @@ public class OculusTouchController{
         public String thumbBrestTouch(){
             return handPart + ComponentPathsEitherHand.THUMB_BREST_TOUCH;
         }
-        public String gripPost(){
-            return handPart + ComponentPathsEitherHand.GRIP_POST;
+        public String gripPose(){
+            return handPart + ComponentPathsEitherHand.GRIP_POSE;
         }
         public String aimPose(){
             return handPart + ComponentPathsEitherHand.AIM_POSE;

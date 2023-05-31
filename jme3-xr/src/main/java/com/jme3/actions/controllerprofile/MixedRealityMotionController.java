@@ -22,7 +22,7 @@ public class MixedRealityMotionController{
         public static final String TRACKPAD_Y ="/input/trackpad/y";
         public static final String TRACKPAD_CLICK ="/input/trackpad/click";
         public static final String TRACKPAD_TOUCH ="/input/trackpad/touch";
-        public static final String GRIP_POST ="/input/grip/pose";
+        public static final String GRIP_POSE ="/input/grip/pose";
         public static final String AIM_POSE ="/input/aim/pose";
         public static final String HAPTIC ="/output/haptic";
     }
@@ -92,8 +92,8 @@ public class MixedRealityMotionController{
             return handPart + ComponentPaths.TRACKPAD_TOUCH;
         }
 
-        public String gripPost(){
-            return handPart + ComponentPaths.GRIP_POST;
+        public String gripPose(){
+            return handPart + ComponentPaths.GRIP_POSE;
         }
 
         public String aimPose(){

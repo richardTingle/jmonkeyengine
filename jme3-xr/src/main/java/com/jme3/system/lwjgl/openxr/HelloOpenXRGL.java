@@ -34,6 +34,8 @@ public class HelloOpenXRGL {
     private static final Logger logger = Logger.getLogger(HelloOpenXRGL.class.getName());
     
     long window;
+
+    long predictedFrameTime;
     AppSettings appSettings;
     
     //XR globals
@@ -420,7 +422,6 @@ public class HelloOpenXRGL {
     public void createXRReferenceSpace() {
         try (MemoryStack stack = stackPush()) {
             PointerBuffer pp = stack.mallocPointer(1);
-
             check(xrCreateReferenceSpace(
                 xrSession,
                 XrReferenceSpaceCreateInfo.malloc(stack)
@@ -439,6 +440,10 @@ public class HelloOpenXRGL {
 
             xrAppSpace = new XrSpace(pp.get(0), xrSession);
         }
+    }
+
+    public long getPredictedFrameTime(){
+        return predictedFrameTime;
     }
 
     public void createXRSwapchains() {
@@ -698,9 +703,10 @@ public class HelloOpenXRGL {
                 .type$Default();
 
             PointerBuffer layers = stack.callocPointer(1);
-
+            this.predictedFrameTime=frameState.predictedDisplayTime();
             boolean didRender = false;
             if (frameState.shouldRender()) {
+
                 if (renderLayerOpenXR(stack, frameState.predictedDisplayTime(), layerProjection)) {
                     layers.put(0, layerProjection);
                     didRender = true;

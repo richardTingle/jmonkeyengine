@@ -53,7 +53,7 @@ public class XrHmd
 		HelloOpenXRGL xr = ((LwjglWindowXr)app.getContext()).getXr();
 		xr.setHmd(xrHmd);
 
-		OpenXRActionState openXRActionState = new OpenXRActionState(xr.getXrSession(), xr.getXrInstance());
+		OpenXRActionState openXRActionState = new OpenXRActionState(xr.getXrSession(), xr.getXrInstance(), xr);
 		app.getStateManager().attach(openXRActionState);
 
 		return xrHmd;
