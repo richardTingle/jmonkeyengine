@@ -6,6 +6,8 @@
 package com.jme3.system.lwjgl.openxr;
 
 import com.jme3.input.xr.Eye;
+import com.jme3.math.Quaternion;
+import com.jme3.math.Vector3f;
 import org.lwjgl.*;
 import org.lwjgl.opengl.*;
 import org.lwjgl.openxr.*;
@@ -427,7 +429,7 @@ public class HelloOpenXRGL {
                 XrReferenceSpaceCreateInfo.malloc(stack)
                     .type$Default()
                     .next(NULL)
-                    .referenceSpaceType(XR_REFERENCE_SPACE_TYPE_LOCAL)
+                    .referenceSpaceType(XR_REFERENCE_SPACE_TYPE_STAGE)
                     .poseInReferenceSpace(XrPosef.malloc(stack)
                         .orientation(XrQuaternionf.malloc(stack)
                             .x(0)
@@ -813,8 +815,8 @@ public class HelloOpenXRGL {
         return true;
     }
 
-    private static com.jme3.math.Vector3f viewPos = new com.jme3.math.Vector3f();
-    private static com.jme3.math.Quaternion viewRot = new com.jme3.math.Quaternion();
+    private static Vector3f viewPos = new Vector3f();
+    private static Quaternion viewRot = new Quaternion();
 
     private void openGLRenderView(XrCompositionLayerProjectionView layerView, XrSwapchainImageOpenGLKHR swapchainImage, int viewIndex) {
         glBindFramebuffer(GL_FRAMEBUFFER, swapchainFramebuffer);
@@ -851,13 +853,14 @@ public class HelloOpenXRGL {
         float foyX = -layerView.fov().angleDown() + layerView.fov().angleUp();
 
         eye.setFieldOfView(foyX,foyY);
+        //eye.setFieldOfView(130f/180* FastMath.PI,130f/180* FastMath.PI);
 
-        glDisable(GL_CULL_FACE); // Disable back-face culling so we can see the inside of the world-space cube and backside of the plane
+        //glDisable(GL_CULL_FACE); // Disable back-face culling so we can see the inside of the world-space cube and backside of the plane
 
         if (viewIndex == 0) { xrHmd.getLeftEye().render(); }
         else if (viewIndex == 1) { xrHmd.getRightEye().render(); }
 
-        glEnable(GL_CULL_FACE);
+        //glEnable(GL_CULL_FACE);
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
 

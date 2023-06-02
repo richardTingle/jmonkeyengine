@@ -547,6 +547,11 @@ public class OpenXRActionState extends BaseAppState{
             Vector3f position = xrVector3fToJME(handPose.position$());
             Quaternion rotation = xrQuaternionToJme(handPose.orientation());
 
+            //I don't like the below, it's the same transformation as is done for the cameras, but it feels arbitrary
+            position.set(position.x, position.y, -position.z);
+            rotation.set(rotation.getX(), rotation.getY(), -rotation.getZ(), rotation.getW());
+            rotation.inverseLocal();
+
             if ((spaceVelocity.velocityFlags() & XR10.XR_SPACE_VELOCITY_ANGULAR_VALID_BIT) != 0 && (spaceVelocity.velocityFlags() & XR10.XR_SPACE_VELOCITY_LINEAR_VALID_BIT) != 0) {
                 // full data available, yay!
                 return Optional.of(new PoseActionState(position, rotation, xrVector3fToJME(spaceVelocity.linearVelocity()), xrVector3fToJME(spaceVelocity.angularVelocity())));
