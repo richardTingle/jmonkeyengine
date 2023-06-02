@@ -228,7 +228,7 @@ public class Action{
                 throw new IllegalArgumentException("name cannot be null");
             }
             if(translatedName == null){
-                throw new IllegalArgumentException("translatedName cannot be null");
+                translatedName = actionName;
             }
             if(actionType == null){
                 throw new IllegalArgumentException("actionType cannot be null");
