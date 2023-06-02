@@ -1,16 +1,21 @@
 package com.jme3.actions;
 
+import org.lwjgl.openxr.EXTHandTracking;
+
 public enum HandSide{
-    LEFT("/user/hand/left"),
-    RIGHT("/user/hand/right");
+    LEFT("/user/hand/left", EXTHandTracking.XR_HAND_LEFT_EXT),
+    RIGHT("/user/hand/right", EXTHandTracking.XR_HAND_RIGHT_EXT);
 
     /**
      * The string that can be passed to get actions to restrict to only that hand
      */
     public final String restrictToInputString;
 
-    HandSide(String restrictToInputString){
+    public final int skeletonIndex;
+
+    HandSide(String restrictToInputString, int skeletonIndex){
         this.restrictToInputString = restrictToInputString;
+        this.skeletonIndex = skeletonIndex;
     }
 
     public HandSide getOtherHand(){

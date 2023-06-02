@@ -11,6 +11,7 @@ import com.jme3.app.Application;
 
 import com.jme3.app.state.BaseAppState;
 
+import com.jme3.handskeleton.HandJoint;
 import com.jme3.math.FastMath;
 import com.jme3.math.Quaternion;
 import com.jme3.math.Vector3f;
@@ -30,6 +31,11 @@ import org.lwjgl.openxr.XrActionStateGetInfo;
 import org.lwjgl.openxr.XrActionSuggestedBinding;
 import org.lwjgl.openxr.XrActionsSyncInfo;
 import org.lwjgl.openxr.XrActiveActionSet;
+import org.lwjgl.openxr.XrHandJointLocationEXT;
+import org.lwjgl.openxr.XrHandJointLocationsEXT;
+import org.lwjgl.openxr.XrHandJointsLocateInfoEXT;
+import org.lwjgl.openxr.XrHandTrackerCreateInfoEXT;
+import org.lwjgl.openxr.XrHandTrackerEXT;
 import org.lwjgl.openxr.XrHapticActionInfo;
 import org.lwjgl.openxr.XrHapticBaseHeader;
 import org.lwjgl.openxr.XrHapticVibration;
@@ -53,6 +59,7 @@ import java.nio.LongBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -62,6 +69,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import org.lwjgl.openxr.EXTHandTracking;
 
 /**
  * This app state provides action based OpenXR calls (aka modern VR and AR).
@@ -93,7 +101,7 @@ public class OpenXRActionState extends BaseAppState{
     /**
      * A map of the action -> input -> handle for action space. Typically one for each hand.
      */
-    private final Map<XrAction,Map<String, Long>> poseActionInputHandles = new HashMap<>();
+    private final Map<XrAction,Map<String, Long>> poseActionInputSpaceHandles = new HashMap<>();
 
     /**
      * These are the cached skeleton data (what bones there are, what the handles are etc)
@@ -124,6 +132,8 @@ public class OpenXRActionState extends BaseAppState{
      * This is action set -> action name -> action
      */
     private Map<String, Map<String,XrAction>> actions;
+
+    private EnumMap<HandSide,XrHandTrackerEXT> handTrackers = new EnumMap<>(HandSide.class);
 
     /**
      * Contains the currently active profiles
@@ -235,7 +245,7 @@ public class OpenXRActionState extends BaseAppState{
 
                         withResponseCodeLogging("Create pose space", XR10.xrCreateActionSpace(xrSession, actionSpaceCreateInfo, spacePointer));
 
-                        poseActionInputHandles.computeIfAbsent(xrAction, key -> new HashMap<>()).put(input, spacePointer.get(0));
+                        poseActionInputSpaceHandles.computeIfAbsent(xrAction, key -> new HashMap<>()).put(input, spacePointer.get(0));
                     }
 
                 }
@@ -284,6 +294,20 @@ public class OpenXRActionState extends BaseAppState{
         withResponseCodeLogging("xrAttachSessionActionSets", XR10.xrAttachSessionActionSets(xrSession, actionSetsAttachInfo));
 
         setActiveActionSets(startingActionSets);
+
+        for(HandSide handSide : HandSide.values()){
+            XrHandTrackerCreateInfoEXT createHandTracking = XrHandTrackerCreateInfoEXT.create()
+                    .type(EXTHandTracking.XR_TYPE_HAND_TRACKER_CREATE_INFO_EXT)
+                    .hand(handSide.skeletonIndex) // Indicate which hand to track
+                    .handJointSet(EXTHandTracking.XR_HAND_JOINT_SET_DEFAULT_EXT); // Use the default hand joint set
+
+            PointerBuffer handTrackingPointerBuffer = BufferUtils.createPointerBuffer(1);
+
+            withResponseCodeLogging("Setup hand tracking", EXTHandTracking.xrCreateHandTrackerEXT(xrSession, createHandTracking, handTrackingPointerBuffer));
+            XrHandTrackerEXT handTrackerEXT = new XrHandTrackerEXT(handTrackingPointerBuffer.get(), xrSession);
+            handTrackers.put(handSide, handTrackerEXT);
+        }
+
     }
 
     /**
@@ -510,7 +534,7 @@ public class OpenXRActionState extends BaseAppState{
      * Pose means the bulk position and rotation of the hand. Be aware that the direction the hand is pointing by this
      * may be surprising, the relative bone positions also need to be taken into account for this to really make sense.
      * <p>
-     * This returns the pose in world coordinate system
+     * This returns the pose in world coordinate system (if the hand is currently available)
      *
      * @param action the action that has been bound to a pose in the action manifest
      * @param stageRelative if the output should be relative to the stage origin (at the feet, in the centre of the device defined
@@ -520,8 +544,8 @@ public class OpenXRActionState extends BaseAppState{
      */
 
     public Optional<PoseActionState> getPose(XrAction action, String input, boolean stageRelative){
-
-        if (openXRGL.getPredictedFrameTime()==0){
+        long predictedTime = openXRGL.getPredictedFrameTime();
+        if (predictedTime==0){
             //not set up yet
             return Optional.empty();
         }
@@ -533,15 +557,16 @@ public class OpenXRActionState extends BaseAppState{
                 .type(XR10.XR_TYPE_SPACE_LOCATION)
                 .next(spaceVelocity);
 
-        long spaceHandle = poseActionInputHandles.get(action).get(input);
+        long spaceHandle = poseActionInputSpaceHandles.get(action).get(input);
 
         XrSpace poseSpace = new XrSpace(spaceHandle, xrSession);
         long handleForReferenceSpace = getOrCreateReferenceSpaceHandle(stageRelative?XR10.XR_REFERENCE_SPACE_TYPE_STAGE:XR10.XR_REFERENCE_SPACE_TYPE_LOCAL);
         XrSpace relativeToSpace = new XrSpace(handleForReferenceSpace, xrSession);
-        withResponseCodeLogging("getPose", XR10.xrLocateSpace(poseSpace, relativeToSpace, openXRGL.getPredictedFrameTime(), spaceLocation));
+        withResponseCodeLogging("getPose", XR10.xrLocateSpace(poseSpace, relativeToSpace, predictedTime, spaceLocation));
 
-        if ((spaceLocation.locationFlags() & XR10.XR_SPACE_LOCATION_POSITION_VALID_BIT) != 0 &&
-                (spaceLocation.locationFlags() & XR10.XR_SPACE_LOCATION_ORIENTATION_VALID_BIT) != 0) {
+        long locationFlags = spaceLocation.locationFlags();
+        if ((locationFlags & XR10.XR_SPACE_LOCATION_POSITION_VALID_BIT) != 0 &&
+                (locationFlags & XR10.XR_SPACE_LOCATION_ORIENTATION_VALID_BIT) != 0) {
             // The pose is valid. You can use spaceLocation.pose() to get the position and orientation of the hand.
             XrPosef handPose = spaceLocation.pose();
             Vector3f position = xrVector3fToJME(handPose.position$());
@@ -552,7 +577,8 @@ public class OpenXRActionState extends BaseAppState{
             rotation.set(rotation.getX(), rotation.getY(), -rotation.getZ(), rotation.getW());
             rotation.inverseLocal();
 
-            if ((spaceVelocity.velocityFlags() & XR10.XR_SPACE_VELOCITY_ANGULAR_VALID_BIT) != 0 && (spaceVelocity.velocityFlags() & XR10.XR_SPACE_VELOCITY_LINEAR_VALID_BIT) != 0) {
+            long velocityFlags = spaceVelocity.velocityFlags();
+            if ((velocityFlags & XR10.XR_SPACE_VELOCITY_ANGULAR_VALID_BIT) != 0 && (velocityFlags & XR10.XR_SPACE_VELOCITY_LINEAR_VALID_BIT) != 0) {
                 // full data available, yay!
                 return Optional.of(new PoseActionState(position, rotation, xrVector3fToJME(spaceVelocity.linearVelocity()), xrVector3fToJME(spaceVelocity.angularVelocity())));
             }else{
@@ -565,6 +591,63 @@ public class OpenXRActionState extends BaseAppState{
             if (logger.isLoggable(Level.FINE)){
                 logger.fine("Hand pose is not valid. This may just be out of tracking range.");
             }
+            return Optional.empty();
+        }
+    }
+
+    /**
+     * Gets the joint positions of the hand in the coordinate system defined by the pose (So if the pose is a grip
+     * pose it's relative to the grip, if it's the aim pose its relative to the aim).
+     * <p>
+     * It's only really a good idea to call this if the pose fetch has already succeeded
+     * @param poseAction the pose (just for the coordinate system)
+     * @param handSide the handside to get the joint positions for
+     */
+    public Optional<Map<HandJoint, PoseActionState>> getSkeleton(String actionSet, String poseActionName, HandSide handSide){
+        return getSkeleton(obtainActionHandle(actionSet, poseActionName), handSide);
+    }
+
+    /**
+     * Gets the joint positions of the hand in the coordinate system defined by the pose (So if the pose is a grip
+     * pose it's relative to the grip, if it's the aim pose its relative to the aim).
+     * <p>
+     * It's only really a good idea to call this if the pose fetch has already succeeded
+     * @param poseAction the pose (just for the coordinate system)
+     * @param handSide the handside to get the joint positions for
+     */
+    public Optional<Map<HandJoint, PoseActionState>> getSkeleton(XrAction poseAction, HandSide handSide){
+        long predictedTime = openXRGL.getPredictedFrameTime();
+        if (predictedTime==0){
+            //not set up yet
+            return Optional.empty();
+        }
+
+        long spaceHandle = poseActionInputSpaceHandles.get(poseAction).get(handSide.restrictToInputString);
+
+        XrSpace poseSpace = new XrSpace(spaceHandle, xrSession);
+
+        XrHandJointLocationsEXT handJointLocations = XrHandJointLocationsEXT.create()
+                .type(EXTHandTracking.XR_TYPE_HAND_JOINT_LOCATIONS_EXT)
+                .jointLocations(XrHandJointLocationEXT.create(EXTHandTracking.XR_HAND_JOINT_COUNT_EXT));
+
+        XrHandJointsLocateInfoEXT locateInfo = XrHandJointsLocateInfoEXT.create()
+                .type(EXTHandTracking.XR_TYPE_HAND_JOINTS_LOCATE_INFO_EXT)
+                .baseSpace(poseSpace)
+                .time(predictedTime);
+        if (handTrackers.containsKey(handSide)){
+            Map<HandJoint, PoseActionState> results = new HashMap<>();
+
+            withResponseCodeLogging("Get joint locations",EXTHandTracking.xrLocateHandJointsEXT(handTrackers.get(handSide), locateInfo, handJointLocations));
+
+            XrHandJointLocationEXT.Buffer xrHandJointLocationEXTS = handJointLocations.jointLocations();
+
+            for(HandJoint joint : HandJoint.values()){
+                XrHandJointLocationEXT xrHandJointLocationEXT = xrHandJointLocationEXTS.get(joint.getJointIndex());
+                results.put(joint, new PoseActionState(xrVector3fToJME(xrHandJointLocationEXT.pose().position$()), xrQuaternionToJme(xrHandJointLocationEXT.pose().orientation())));
+            }
+            return Optional.of(results);
+        }else {
+            logger.warning("No hand tracker for handSide " + handSide+ ". Have you registered the manifest?");
             return Optional.empty();
         }
     }

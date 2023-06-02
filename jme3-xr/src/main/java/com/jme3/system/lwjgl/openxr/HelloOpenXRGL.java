@@ -216,7 +216,7 @@ public class HelloOpenXRGL {
             }
 
             if (missingOpenGL) {
-                throw new IllegalStateException("OpenXR library does not provide required extension: " + XR_KHR_OPENGL_ENABLE_EXTENSION_NAME);
+                throw new IllegalStateException("OpenXR library does not provide required extension: " + KHROpenGLEnable.XR_KHR_OPENGL_ENABLE_EXTENSION_NAME);
             }
 
             if (useEglGraphicsBinding) {
@@ -225,8 +225,9 @@ public class HelloOpenXRGL {
                 System.out.println("Going to use platform-specific session creation");
             }
 
-            PointerBuffer extensions = stack.mallocPointer(2);
-            extensions.put(stack.UTF8(XR_KHR_OPENGL_ENABLE_EXTENSION_NAME));
+            PointerBuffer extensions = stack.mallocPointer(3);
+            extensions.put(stack.UTF8(KHROpenGLEnable.XR_KHR_OPENGL_ENABLE_EXTENSION_NAME));
+            extensions.put(stack.UTF8(EXTHandTracking.XR_EXT_HAND_TRACKING_EXTENSION_NAME)); //this is for hand skeletons
             if (useEglGraphicsBinding) {
                 extensions.put(stack.UTF8(XR_MNDX_EGL_ENABLE_EXTENSION_NAME));
             } else if (!missingXrDebug) {
