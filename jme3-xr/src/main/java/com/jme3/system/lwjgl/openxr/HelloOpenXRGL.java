@@ -6,6 +6,8 @@
 package com.jme3.system.lwjgl.openxr;
 
 import com.jme3.input.xr.Eye;
+import com.jme3.math.Quaternion;
+import com.jme3.math.Vector3f;
 import org.lwjgl.*;
 import org.lwjgl.opengl.*;
 import org.lwjgl.openxr.*;
@@ -804,11 +806,12 @@ public class HelloOpenXRGL {
 
         layer.space(xrAppSpace);
         layer.views(projectionLayerViews);
+        checkForGLErrors();
         return true;
     }
 
-    private static com.jme3.math.Vector3f viewPos = new com.jme3.math.Vector3f();
-    private static com.jme3.math.Quaternion viewRot = new com.jme3.math.Quaternion();
+    private static Vector3f viewPos = new Vector3f();
+    private static Quaternion viewRot = new Quaternion();
 
     private void openGLRenderView(XrCompositionLayerProjectionView layerView, XrSwapchainImageOpenGLKHR swapchainImage, int viewIndex) {
         glBindFramebuffer(GL_FRAMEBUFFER, swapchainFramebuffer);
@@ -833,31 +836,28 @@ public class HelloOpenXRGL {
         XrVector3f    pos         = pose.position$();
         XrQuaternionf orientation = pose.orientation();
 
+        //I don't like these coordinate transformations, they were necessary, but why
         viewPos.set(pos.x(), pos.y(), -pos.z());
         viewRot.set(orientation.x(), orientation.y(), -orientation.z(), orientation.w());
+        viewRot.inverseLocal();
 
         Eye eye = viewIndex == 0 ? xrHmd.getLeftEye() : xrHmd.getRightEye();
 
-        eye.setRotation(viewRot.inverse());
+        eye.setRotation(viewRot);
         eye.setPosition(viewPos);
 
         float foyY = -layerView.fov().angleLeft() + layerView.fov().angleRight();
         float foyX = -layerView.fov().angleDown() + layerView.fov().angleUp();
 
         eye.setFieldOfView(foyX,foyY);
-
-        glDisable(GL_CULL_FACE); // Disable back-face culling so we can see the inside of the world-space cube and backside of the plane
-
-        if (viewIndex == 0) { xrHmd.getLeftEye().render(); }
-        else if (viewIndex == 1) { xrHmd.getRightEye().render(); }
-
-        glEnable(GL_CULL_FACE);
+        eye.render();
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
         if (viewIndex == swapchains.length - 1) {
             glFlush();
         }
+        checkForGLErrors();
     }
 
     public void check(int result) throws IllegalStateException {
@@ -879,6 +879,13 @@ public class HelloOpenXRGL {
     public static class XrResultException extends RuntimeException {
         public XrResultException(String s) {
             super(s);
+        }
+    }
+
+    private void checkForGLErrors(){
+        int errorCode = glGetError();
+        if(errorCode != GL11C.GL_NO_ERROR){
+            throw new RuntimeException("Experienced error " + errorCode);
         }
     }
 
