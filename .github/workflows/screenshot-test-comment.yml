@@ -20,6 +20,9 @@ jobs:
       pull-requests: write
       contents: read
     steps:
+      - name: Wait for GitHub to register the workflow run
+        run: sleep 15
+
       - name: Wait for Screenshot Tests to complete
         uses: lewagon/wait-on-check-action@v1.3.1
         with:
