@@ -27,7 +27,7 @@ jobs:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           wait-interval: 10
           allowed-conclusions: success,skipped,failure
-
+          timeout-minutes: 60
       - name: Check Screenshot Tests status
         id: check-status
         uses: actions/github-script@v6
