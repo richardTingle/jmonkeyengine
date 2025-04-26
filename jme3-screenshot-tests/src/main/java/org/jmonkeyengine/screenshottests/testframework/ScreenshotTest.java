@@ -49,8 +49,6 @@ public class ScreenshotTest{
 
     AppState[] states;
 
-    boolean withOpenClSupport;
-
     List<Integer> framesToTakeScreenshotsOn = new ArrayList<>();
 
     TestResolution resolution = new TestResolution(500, 400);
@@ -68,11 +66,6 @@ public class ScreenshotTest{
     public ScreenshotTest setFramesToTakeScreenshotsOn(Integer... frames){
         framesToTakeScreenshotsOn.clear();
         framesToTakeScreenshotsOn.addAll(Arrays.asList(frames));
-        return this;
-    }
-
-    public ScreenshotTest withOpenCLSupport(){
-        withOpenClSupport = true;
         return this;
     }
 
@@ -104,7 +97,7 @@ public class ScreenshotTest{
         settings.setResolution(resolution.getWidth(), resolution.getHeight());
         settings.setAudioRenderer(null); // Disable audio (for headless)
         settings.setUseInput(false); //while it will run with inputs on it causes non-fatal errors.
-        settings.setOpenCLSupport(withOpenClSupport);
+
         String imageFilePrefix = baseImageFileName == null ? calculateImageFilePrefix() : baseImageFileName;
 
         TestDriver.bootAppForTest(testType,settings,imageFilePrefix, framesToTakeScreenshotsOn, states);
