@@ -26,6 +26,7 @@ jobs:
           check-name: 'Run Screenshot Tests'
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           wait-interval: 10
+          allowed-conclusions: success,skipped,failure
 
       - name: Check Screenshot Tests status
         id: check-status
@@ -87,7 +88,7 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               body: `🖼️ **Screenshot tests have failed.** 
-              
+
               The purpose of these tests is to ensure that changes introduced in this PR don't break visual features. They are visual unit tests.
 
               📄 **Where to find the report:**
