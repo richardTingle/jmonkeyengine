@@ -72,15 +72,11 @@ jobs:
     - name: Install Mesa3D and OpenCL
       run: |
         sudo apt-get update
-        sudo apt-get install -y mesa-utils libgl1-mesa-dri libgl1 libglx-mesa0 xvfb ocl-icd-opencl-dev ocl-icd-libopencl1 opencl-headers mesa-opencl-icd pocl-opencl-icd
+        sudo apt-get install -y mesa-utils libgl1-mesa-dri libgl1 libglx-mesa0 xvfb
     - name: Set environment variables for Mesa3D
       run: |
         echo "LIBGL_ALWAYS_SOFTWARE=1" >> $GITHUB_ENV
         echo "MESA_LOADER_DRIVER_OVERRIDE=llvmpipe" >> $GITHUB_ENV
-    - name: Set environment variables for OpenCL
-      run: |
-        echo "POCL_DEVICES=cpu" >> $GITHUB_ENV
-        echo "POCL_PLATFORM=portable" >> $GITHUB_ENV
     - name: Start xvfb
       run: |
         sudo Xvfb :99 -ac -screen 0 1024x768x16 &
