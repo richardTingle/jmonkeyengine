@@ -53,7 +53,7 @@ on:
       - v3.3
   pull_request:
   release:
-    types: [published]
+    types: [ published ]
 
 jobs:
   ScreenshotTests:
@@ -110,7 +110,19 @@ jobs:
             issue_number: context.issue.number,
             owner: context.repo.owner,
             repo: context.repo.repo,
-            body: "Looks like the screenshot tests have failed.\n\n See https://github.com/jMonkeyEngine/jmonkeyengine/blob/master/jme3-screenshot-tests/README.md for more information"
+            body: `Looks like the screenshot tests have failed.
+                   
+                   You can find the report at [the failed run] > Summary > Artifacts > screenshot-test-report. Download the zip and find the report itself at jme3-screenshot-tests\build\reports\ScreenshotDiffReport.html
+                  
+                   If you didn't expect to change anything visual: fix your changes so the screenshot tests pass.
+                  
+                   If you did mean to change things: review the replacement images in jme3-screenshot-tests\build\changed-images to make sure they really are improvements and then replace and commit the replacement images at jme3-screenshot-tests/src/test/resources.
+                  
+                   If you are creating entirely new tests: Find the new images in jme3-screenshot-tests\build\changed-images and commit the new images at jme3-screenshot-tests/src/test/resources.
+                  
+                   Note; it is very important that the committed reference images are created on the build pipeline, locally created images are not reliable
+                  
+                   See https://github.com/jMonkeyEngine/jmonkeyengine/blob/master/jme3-screenshot-tests/README.md for more information`
           })
   # Build the natives on android
   BuildAndroidNatives:
@@ -139,14 +151,14 @@ jobs:
 
   # Build the engine, we only deploy from ubuntu-latest jdk21
   BuildJMonkey:
-    needs: [BuildAndroidNatives]
+    needs: [ BuildAndroidNatives ]
     name: Build on ${{ matrix.osName }} jdk${{ matrix.jdk }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest,windows-latest,macOS-latest]
-        jdk: [11, 17, 21]
+        os: [ ubuntu-latest,windows-latest,macOS-latest ]
+        jdk: [ 11, 17, 21 ]
         include:
           - os: ubuntu-latest
             osName: linux
@@ -242,7 +254,7 @@ jobs:
           path: dist/maven
 
       - name: Upload javadoc
-        if:  matrix.deploy==true
+        if: matrix.deploy==true
         uses: actions/upload-artifact@master
         with:
           name: javadoc
@@ -261,7 +273,7 @@ jobs:
   # this is useful for people that want to build only the java part and don't have
   # all the stuff needed to compile natives.
   DeployNativeSnapshot:
-    needs: [BuildJMonkey]
+    needs: [ BuildJMonkey ]
     name: "Deploy native snapshot"
     runs-on: ubuntu-latest
     if: github.event_name == 'push'
@@ -347,7 +359,7 @@ jobs:
 
   # This job deploys snapshots on the master branch
   DeployJavaSnapshot:
-    needs: [BuildJMonkey]
+    needs: [ BuildJMonkey ]
     name: Deploy Java Snapshot
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref_name == 'master'
@@ -391,7 +403,7 @@ jobs:
 
   # This job deploys the release
   DeployRelease:
-    needs: [BuildJMonkey]
+    needs: [ BuildJMonkey ]
     name: Deploy Release
     runs-on: ubuntu-latest
     if: github.event_name == 'release'
@@ -472,7 +484,7 @@ jobs:
 
   # Deploy the javadoc
   DeployJavaDoc:
-    needs: [BuildJMonkey]
+    needs: [ BuildJMonkey ]
     name: Deploy Javadoc
     runs-on: ubuntu-latest
     if: github.event_name == 'release'
