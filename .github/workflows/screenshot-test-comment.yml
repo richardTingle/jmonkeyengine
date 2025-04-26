@@ -79,32 +79,28 @@ jobs:
 
       - name: Comment on PR if tests fail
         if: steps.check-status.outputs.failed == 'true'
-        uses: actions/github-script@v6
+        uses: peter-evans/create-or-update-comment@v4
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: `🖼️ **Screenshot tests have failed.** 
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            🖼️ **Screenshot tests have failed.** 
 
-              The purpose of these tests is to ensure that changes introduced in this PR don't break visual features. They are visual unit tests.
+            The purpose of these tests is to ensure that changes introduced in this PR don't break visual features. They are visual unit tests.
 
-              📄 **Where to find the report:**
-              - Go to the (failed run) > Summary > Artifacts > screenshot-test-report
-              - Download the zip and open jme3-screenshot-tests/build/reports/ScreenshotDiffReport.html
+            📄 **Where to find the report:**
+            - Go to the (failed run) > Summary > Artifacts > screenshot-test-report
+            - Download the zip and open jme3-screenshot-tests/build/reports/ScreenshotDiffReport.html
 
-              ⚠️ **If you didn't expect to change anything visual:** 
-              Fix your changes so the screenshot tests pass.
+            ⚠️ **If you didn't expect to change anything visual:** 
+            Fix your changes so the screenshot tests pass.
 
-              ✅ **If you did mean to change things:** 
-              Review the replacement images in jme3-screenshot-tests/build/changed-images to make sure they really are improvements and then replace and commit the replacement images at jme3-screenshot-tests/src/test/resources.
+            ✅ **If you did mean to change things:** 
+            Review the replacement images in jme3-screenshot-tests/build/changed-images to make sure they really are improvements and then replace and commit the replacement images at jme3-screenshot-tests/src/test/resources.
 
-              🔥 **If you are creating entirely new tests:** 
-              Find the new images in jme3-screenshot-tests/build/changed-images and commit the new images at jme3-screenshot-tests/src/test/resources.
+            ✨ **If you are creating entirely new tests:** 
+            Find the new images in jme3-screenshot-tests/build/changed-images and commit the new images at jme3-screenshot-tests/src/test/resources.
 
-              Note; it is very important that the committed reference images are created on the build pipeline, locally created images are not reliable
+            Note; it is very important that the committed reference images are created on the build pipeline, locally created images are not reliable
 
-              See https://github.com/jMonkeyEngine/jmonkeyengine/blob/master/jme3-screenshot-tests/README.md for more information`
-            })
+            See https://github.com/jMonkeyEngine/jmonkeyengine/blob/master/jme3-screenshot-tests/README.md for more information
+          comment-id: screenshot-test-failure
