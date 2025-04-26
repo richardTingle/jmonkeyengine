@@ -72,7 +72,7 @@ jobs:
     - name: Install Mesa3D and OpenCL
       run: |
         sudo apt-get update
-        sudo apt-get install -y mesa-utils libgl1-mesa-dri libgl1 libglx-mesa0 xvfb ocl-icd-opencl-dev ocl-icd-libopencl1 opencl-headers mesa-opencl-icd
+        sudo apt-get install -y mesa-utils libgl1-mesa-dri libgl1 libglx-mesa0 xvfb ocl-icd-opencl-dev ocl-icd-libopencl1 opencl-headers mesa-opencl-icd pocl-opencl-icd
     - name: Set environment variables for Mesa3D
       run: |
         echo "LIBGL_ALWAYS_SOFTWARE=1" >> $GITHUB_ENV
