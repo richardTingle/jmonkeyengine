@@ -77,6 +77,10 @@ jobs:
       run: |
         echo "LIBGL_ALWAYS_SOFTWARE=1" >> $GITHUB_ENV
         echo "MESA_LOADER_DRIVER_OVERRIDE=llvmpipe" >> $GITHUB_ENV
+    - name: Set environment variables for OpenCL
+      run: |
+        echo "POCL_DEVICES=cpu" >> $GITHUB_ENV
+        echo "POCL_PLATFORM=portable" >> $GITHUB_ENV
     - name: Start xvfb
       run: |
         sudo Xvfb :99 -ac -screen 0 1024x768x16 &
