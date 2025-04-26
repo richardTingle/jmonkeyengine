@@ -66,6 +66,7 @@ import org.junit.jupiter.api.Test;
  */
 public class TestPostWater extends ScreenshotTestBase{
 
+
     /**
      * This test creates a scene with a terrain and post process water filter.
      */
