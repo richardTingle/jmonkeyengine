@@ -283,7 +283,7 @@ public class TestExplosionEffect extends ScreenshotTestBase{
                 }
             }
 // non breaking
-        }).setFramesToTakeScreenshotsOn(2,15, 16)
+        }).setFramesToTakeScreenshotsOn(2,15, 16, 17)
           .run();
     }
 
