@@ -52,19 +52,12 @@ jobs:
   ScreenshotTests:
     name: Run Screenshot Tests
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/richardtingle/opengl-docker-image:v1
     permissions:
       contents: read
     steps:
     - uses: actions/checkout@v4
-    - name: Set up JDK 17
-      uses: actions/setup-java@v4
-      with:
-        java-version: '17'
-        distribution: 'temurin'
-    - name: Install Mesa3D
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y mesa-utils libgl1-mesa-dri libgl1 libglx-mesa0 xvfb
     - name: Set environment variables for Mesa3D
       run: |
         echo "LIBGL_ALWAYS_SOFTWARE=1" >> $GITHUB_ENV
