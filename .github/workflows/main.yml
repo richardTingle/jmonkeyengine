@@ -67,6 +67,8 @@ jobs:
         sudo Xvfb :99 -ac -screen 0 1024x768x16 &
         export DISPLAY=:99
         echo "DISPLAY=:99" >> $GITHUB_ENV
+        # Wait for Xvfb to initialize
+        sleep 3
     - name: Verify Mesa3D Installation
       run: |
         glxinfo | grep "OpenGL"
