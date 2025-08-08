@@ -155,9 +155,11 @@ public class IBLGLEnvBakerLight extends IBLHybridEnvBakerLight {
 
             Image img = new Image(format, NUM_SH_COEFFICIENT, 1, shCoefRaw, ColorSpace.Linear);
             ImageRaster imgr = ImageRaster.create(img);
-            LOG.info("shCoef array created with length: " + shCoef.length);
 
             shCoef = new Vector3f[NUM_SH_COEFFICIENT];
+            LOG.info("shCoef array created with length: " + shCoef.length);
+
+
             float weightAccum = 0.0f;
 
             for (int i = 0; i < shCoef.length; i++) {
