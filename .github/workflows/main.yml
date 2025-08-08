@@ -53,22 +53,11 @@ jobs:
     name: Run Screenshot Tests
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/richardtingle/opengl-docker-image:v1
+      image: ghcr.io/richardtingle/opengl-docker-image:v2
     permissions:
       contents: read
     steps:
     - uses: actions/checkout@v4
-    - name: Set environment variables for Mesa3D
-      run: |
-        echo "LIBGL_ALWAYS_SOFTWARE=1" >> $GITHUB_ENV
-        echo "MESA_LOADER_DRIVER_OVERRIDE=llvmpipe" >> $GITHUB_ENV
-    - name: Start xvfb
-      run: |
-        Xvfb :99 -ac -screen 0 1024x768x16 &
-        export DISPLAY=:99
-        echo "DISPLAY=:99" >> $GITHUB_ENV
-        # Wait for Xvfb to initialize
-        sleep 3
     - name: Verify Mesa3D Installation
       run: |
         glxinfo | grep "OpenGL"
