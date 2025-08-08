@@ -15,7 +15,7 @@ services:
         sed -i "s/\r$$//" ./gradlew &&
         chmod +x ./gradlew &&
         od -c ./gradlew | head -n 10 &&
-        ./gradlew :jme3-screenshot-test:screenshotTest
+        ./gradlew :jme3-screenshot-test:screenshotTest --info --stacktrace
       '
     # Ensure the container has access to the host's network
     # This can help with some OpenGL/GPU related issues
