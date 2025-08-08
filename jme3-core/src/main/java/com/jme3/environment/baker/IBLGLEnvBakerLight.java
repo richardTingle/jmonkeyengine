@@ -32,6 +32,7 @@
 package com.jme3.environment.baker;
 
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.logging.Logger;
 import com.jme3.asset.AssetManager;
 import com.jme3.environment.util.EnvMapUtils;
@@ -93,86 +94,112 @@ public class IBLGLEnvBakerLight extends IBLHybridEnvBakerLight {
 
     @Override
     public void bakeSphericalHarmonicsCoefficients() {
-        Box boxm = new Box(1, 1, 1);
-        Geometry screen = new Geometry("BakeBox", boxm);
+        try {
+            Box boxm = new Box(1, 1, 1);
+            Geometry screen = new Geometry("BakeBox", boxm);
 
-        Material mat = new Material(assetManager, "Common/IBLSphH/IBLSphH.j3md");
-        mat.setTexture("Texture", envMap);
-        mat.setVector2("Resolution", new Vector2f(envMap.getImage().getWidth(), envMap.getImage().getHeight()));
-        screen.setMaterial(mat);
+            Material mat = new Material(assetManager, "Common/IBLSphH/IBLSphH.j3md");
+            mat.setTexture("Texture", envMap);
+            mat.setVector2("Resolution", new Vector2f(envMap.getImage().getWidth(), envMap.getImage().getHeight()));
+            screen.setMaterial(mat);
 
-        float remapMaxValue = 0;
-        Format format = Format.RGBA32F;
-        if (!renderManager.getRenderer().getCaps().contains(Caps.FloatColorBufferRGBA)) {
-            LOG.warning("Float textures not supported, using RGB8 instead. This may cause accuracy issues.");
-            format = Format.RGBA8;
-            remapMaxValue = 0.05f;
-        }
+            float remapMaxValue = 0;
+            Format format = Format.RGBA32F;
+            if (!renderManager.getRenderer().getCaps().contains(Caps.FloatColorBufferRGBA)) {
+                LOG.warning("Float textures not supported, using RGB8 instead. This may cause accuracy issues.");
+                format = Format.RGBA8;
+                remapMaxValue = 0.05f;
+            }
 
-        if (remapMaxValue > 0) {
-            mat.setFloat("RemapMaxValue", remapMaxValue);
-        } else {
-            mat.clearParam("RemapMaxValue");
-        }
-
-        Texture2D shCoefTx[] = { new Texture2D(NUM_SH_COEFFICIENT, 1, 1, format), new Texture2D(NUM_SH_COEFFICIENT, 1, 1, format) };
-
-        FrameBuffer shbaker[] = { new FrameBuffer(NUM_SH_COEFFICIENT, 1, 1), new FrameBuffer(NUM_SH_COEFFICIENT, 1, 1) };
-        shbaker[0].setSrgb(false);
-        shbaker[0].addColorTarget(FrameBufferTarget.newTarget(shCoefTx[0]));
-
-        shbaker[1].setSrgb(false);
-        shbaker[1].addColorTarget(FrameBufferTarget.newTarget(shCoefTx[1]));
-
-        int renderOnT = -1;
-
-        for (int faceId = 0; faceId < 6; faceId++) {
-            if (renderOnT != -1) {
-                int s = renderOnT;
-                renderOnT = renderOnT == 0 ? 1 : 0;
-                mat.setTexture("ShCoef", shCoefTx[s]);
+            if (remapMaxValue > 0) {
+                mat.setFloat("RemapMaxValue", remapMaxValue);
             } else {
-                renderOnT = 0;
+                mat.clearParam("RemapMaxValue");
             }
 
-            mat.setInt("FaceId", faceId);
+            Texture2D shCoefTx[] = {new Texture2D(NUM_SH_COEFFICIENT, 1, 1, format), new Texture2D(NUM_SH_COEFFICIENT, 1, 1, format)};
 
-            screen.updateLogicalState(0);
-            screen.updateGeometricState();
+            FrameBuffer shbaker[] = {new FrameBuffer(NUM_SH_COEFFICIENT, 1, 1), new FrameBuffer(NUM_SH_COEFFICIENT, 1, 1)};
+            shbaker[0].setSrgb(false);
+            shbaker[0].addColorTarget(FrameBufferTarget.newTarget(shCoefTx[0]));
 
-            renderManager.setCamera(updateAndGetInternalCamera(0, shbaker[renderOnT].getWidth(), shbaker[renderOnT].getHeight(), Vector3f.ZERO, 1, 1000), false);
-            renderManager.getRenderer().setFrameBuffer(shbaker[renderOnT]);
-            renderManager.renderGeometry(screen);
-        }
+            shbaker[1].setSrgb(false);
+            shbaker[1].addColorTarget(FrameBufferTarget.newTarget(shCoefTx[1]));
 
-        ByteBuffer shCoefRaw = BufferUtils.createByteBuffer(NUM_SH_COEFFICIENT * 1 * (shbaker[renderOnT].getColorTarget().getFormat().getBitsPerPixel() / 8));
-        renderManager.getRenderer().readFrameBufferWithFormat(shbaker[renderOnT], shCoefRaw, shbaker[renderOnT].getColorTarget().getFormat());
-        shCoefRaw.rewind();
+            int renderOnT = -1;
 
-        Image img = new Image(format, NUM_SH_COEFFICIENT, 1, shCoefRaw, ColorSpace.Linear);
-        ImageRaster imgr = ImageRaster.create(img);
+            for (int faceId = 0; faceId < 6; faceId++) {
+                if (renderOnT != -1) {
+                    int s = renderOnT;
+                    renderOnT = renderOnT == 0 ? 1 : 0;
+                    mat.setTexture("ShCoef", shCoefTx[s]);
+                } else {
+                    renderOnT = 0;
+                }
 
-        shCoef = new Vector3f[NUM_SH_COEFFICIENT];
-        float weightAccum = 0.0f;
+                mat.setInt("FaceId", faceId);
 
-        for (int i = 0; i < shCoef.length; i++) {
-            ColorRGBA c = imgr.getPixel(i, 0);
-            shCoef[i] = new Vector3f(c.r, c.g, c.b);
-            if (weightAccum == 0) weightAccum = c.a;
-            else if (weightAccum != c.a) {
-                LOG.warning("SH weight is not uniform, this may cause issues.");
+                screen.updateLogicalState(0);
+                screen.updateGeometricState();
+
+                renderManager.setCamera(updateAndGetInternalCamera(0, shbaker[renderOnT].getWidth(), shbaker[renderOnT].getHeight(), Vector3f.ZERO, 1, 1000), false);
+                renderManager.getRenderer().setFrameBuffer(shbaker[renderOnT]);
+                renderManager.renderGeometry(screen);
             }
 
+            ByteBuffer shCoefRaw = BufferUtils.createByteBuffer(NUM_SH_COEFFICIENT * 1 * (shbaker[renderOnT].getColorTarget().getFormat().getBitsPerPixel() / 8));
+            renderManager.getRenderer().readFrameBufferWithFormat(shbaker[renderOnT], shCoefRaw, shbaker[renderOnT].getColorTarget().getFormat());
+            LOG.info("shCoefRaw capacity: " + shCoefRaw.capacity() + ", position: " + shCoefRaw.position());
+
+            shCoefRaw.rewind();
+
+            Image img = new Image(format, NUM_SH_COEFFICIENT, 1, shCoefRaw, ColorSpace.Linear);
+            ImageRaster imgr = ImageRaster.create(img);
+            LOG.info("shCoef array created with length: " + shCoef.length);
+
+            shCoef = new Vector3f[NUM_SH_COEFFICIENT];
+            float weightAccum = 0.0f;
+
+            for (int i = 0; i < shCoef.length; i++) {
+                ColorRGBA c = imgr.getPixel(i, 0);
+                shCoef[i] = new Vector3f(c.r, c.g, c.b);
+                if (weightAccum == 0) weightAccum = c.a;
+                else if (weightAccum != c.a) {
+                    LOG.warning("SH weight is not uniform, this may cause issues.");
+                }
+                LOG.info("weightAccum: " + weightAccum);
+            }
+
+            if (remapMaxValue > 0) weightAccum /= remapMaxValue;
+
+            for (int i = 0; i < NUM_SH_COEFFICIENT; ++i) {
+                if (remapMaxValue > 0) shCoef[i].divideLocal(remapMaxValue);
+                shCoef[i].multLocal(4.0f * FastMath.PI / weightAccum);
+            }
+            LOG.info("Final shCoef values: " + Arrays.toString(shCoef));
+            EnvMapUtils.prepareShCoefs(shCoef);
+            img.dispose();
+
+            boolean hasValidCoefficients = true;
+            for (Vector3f coef : shCoef) {
+                if (coef == null || Float.isNaN(coef.x) || Float.isNaN(coef.y) || Float.isNaN(coef.z)) {
+                    hasValidCoefficients = false;
+                    break;
+                }
+            }
+
+            if (!hasValidCoefficients) {
+                LOG.warning("Invalid spherical harmonics coefficients detected, falling back to CPU implementation");
+                super.bakeSphericalHarmonicsCoefficients();
+            }
+
+            LOG.info("rjt all is well");
+
+        } catch (Exception e) {
+            LOG.warning("GPU-based spherical harmonics calculation failed, falling back to CPU implementation: " + e.getMessage());
+            e.printStackTrace();
+            // Fall back to the parent class's CPU-based implementation
+            super.bakeSphericalHarmonicsCoefficients();
         }
-
-        if (remapMaxValue > 0) weightAccum /= remapMaxValue;
-
-        for (int i = 0; i < NUM_SH_COEFFICIENT; ++i) {
-            if (remapMaxValue > 0) shCoef[i].divideLocal(remapMaxValue);
-            shCoef[i].multLocal(4.0f * FastMath.PI / weightAccum);
-        }
-        EnvMapUtils.prepareShCoefs(shCoef);
-        img.dispose();
-
     }
 }
