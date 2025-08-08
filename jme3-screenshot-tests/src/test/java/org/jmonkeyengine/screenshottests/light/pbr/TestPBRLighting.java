@@ -37,6 +37,7 @@ import com.jme3.app.state.BaseAppState;
 import com.jme3.asset.AssetManager;
 import com.jme3.environment.EnvironmentCamera;
 import com.jme3.environment.FastLightProbeFactory;
+import com.jme3.environment.baker.IBLGLEnvBakerLight;
 import com.jme3.light.DirectionalLight;
 import com.jme3.light.LightProbe;
 import com.jme3.material.Material;
@@ -45,6 +46,7 @@ import com.jme3.math.Vector3f;
 import com.jme3.post.FilterPostProcessor;
 import com.jme3.post.filters.ToneMapFilter;
 import com.jme3.renderer.Camera;
+import com.jme3.renderer.Caps;
 import com.jme3.scene.Geometry;
 import com.jme3.scene.Node;
 import com.jme3.scene.Spatial;
@@ -57,6 +59,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import java.util.logging.Logger;
 import java.util.stream.Stream;
 
 /**
@@ -67,7 +70,7 @@ import java.util.stream.Stream;
  *
  */
 public class TestPBRLighting extends ScreenshotTestBase {
-
+    private static final Logger LOG = Logger.getLogger(TestPBRLighting.class.getName());
     private static Stream<Arguments> testParameters() {
         return Stream.of(
             Arguments.of("LowRoughness", 0.1f, false),
@@ -100,11 +103,19 @@ public class TestPBRLighting extends ScreenshotTestBase {
             private Node modelNode;
             private int frame = 0;
 
+            LightProbe probe;
+
             @Override
             protected void initialize(Application app) {
+                boolean hasFloatBufferSupport = app.getRenderer().getCaps().contains(Caps.FloatColorBufferRGBA);
+                LOG.info("Float color buffer support: " + hasFloatBufferSupport);
+
                 Camera cam = app.getCamera();
                 cam.setLocation(new Vector3f(18, 10, 0));
                 cam.lookAt(new Vector3f(0, 0, 0), Vector3f.UNIT_Y);
+                System.out.println("Camera position set to: " + cam.getLocation());
+
+
 
                 AssetManager assetManager = app.getAssetManager();
                 assetManager.registerLoader(KTXLoader.class, "ktx");
@@ -126,8 +137,6 @@ public class TestPBRLighting extends ScreenshotTestBase {
                 if (updateLight) {
                     dl.setDirection(app.getCamera().getDirection().normalize());
                 }
-
-                simpleApp.getRootNode().attachChild(modelNode);
 
                 FilterPostProcessor fpp = new FilterPostProcessor(assetManager);
                 int numSamples = app.getContext().getSettings().getSamples();
@@ -162,11 +171,9 @@ public class TestPBRLighting extends ScreenshotTestBase {
             @Override
             public void update(float tpf) {
                 frame++;
+                System.out.println("Update frame: " + frame + ", tpf: " + tpf);
 
                 if (frame == 2) {
-                    modelNode.removeFromParent();
-                    LightProbe probe;
-
                     SimpleApplication simpleApp = (SimpleApplication) getApplication();
                     probe = FastLightProbeFactory.makeProbe(simpleApp.getRenderManager(),
                                                            simpleApp.getAssetManager(),
@@ -175,12 +182,12 @@ public class TestPBRLighting extends ScreenshotTestBase {
                                                            1f,
                                                            1000f,
                                                            simpleApp.getRootNode());
-
                     probe.getArea().setRadius(100);
                     simpleApp.getRootNode().addLight(probe);
                 }
 
                 if (frame > 10 && modelNode.getParent() == null) {
+                    LOG.info("Probe ready 2: " + probe.isReady());
                     SimpleApplication simpleApp = (SimpleApplication) getApplication();
                     simpleApp.getRootNode().attachChild(modelNode);
                 }
