@@ -54,8 +54,8 @@ public class ExtentReportLogCapture {
     public static void initialize() {
         if (!initialized) {
             // Redirect System.out and System.err
-            System.setOut(new ExtentReportPrintStream(originalOut, false));
-            System.setErr(new ExtentReportPrintStream(originalErr, true));
+            System.setOut(new ExtentReportPrintStream(originalOut));
+            System.setErr(new ExtentReportPrintStream(originalErr));
 
             initialized = true;
         }
@@ -77,12 +77,10 @@ public class ExtentReportLogCapture {
      * A custom PrintStream that redirects output to both the original console and the ExtentReport.
      */
     private static class ExtentReportPrintStream extends PrintStream {
-        boolean error;
         private StringBuilder buffer = new StringBuilder();
 
-        public ExtentReportPrintStream(OutputStream out, boolean error) {
+        public ExtentReportPrintStream(OutputStream out) {
             super(out, true);
-            this.error = error;
         }
 
         @Override
@@ -107,11 +105,7 @@ public class ExtentReportLogCapture {
             try {
                 ExtentTest currentTest = ExtentReportExtension.getCurrentTest();
                 if (currentTest != null) {
-                    if(error){
-                        currentTest.warning(s);
-                    }else{
-                        currentTest.info(s);
-                    }
+                    currentTest.info(s);
                 }
             } catch (Exception e) {
                 // If there's an error adding to the report, just continue
