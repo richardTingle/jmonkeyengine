@@ -2,6 +2,10 @@
 
 This module contains tests that compare screenshots of the JME3 test applications to reference images. Think of these like visual unit tests
 
+## Running the tests
+
+### Running locally (directly)
+
 The tests are run using the following command:
 
 ```
@@ -9,6 +13,24 @@ The tests are run using the following command:
 ```
 
 This will create a report in `jme3-screenshot-test/build/reports/ScreenshotDiffReport.html` that shows the differences between the reference images and the screenshots taken during the test run. Note that this is an ExtentReport. 
+
+### Running locally (using Docker)
+
+To run the tests in a stable environment that matches the CI server, you can use Docker:
+
+1. Make sure you have Docker and Docker Compose installed
+2. Navigate to the jme3-screenshot-tests directory
+3. Run the following command:
+
+```
+docker-compose up
+```
+
+This will run the tests in a Docker container using the same environment as the CI server. The report will be created in the same location as when running directly.
+
+> **Note for Windows users**: The Docker setup automatically handles line ending conversion for the gradlew script. Windows uses CRLF line endings, but Linux (used in the Docker container) requires LF line endings. Even though there are separate scripts for different operating systems (gradlew.bat for Windows and gradlew for Linux), when running in Docker on Windows, the Linux script (gradlew) is used inside the container but might have Windows-style line endings if checked out on a Windows system. The docker-compose.yml file includes commands to fix this automatically.
+
+### Running on CI
 
 This is most reliable when run on the CI server. The report can be downloaded from the artifacts section of the pipeline (once the full pipeline has completed). If you go into
 the Actions tab (on GitHub) and find your pipeline you can download the report from the Artifacts section. It will be called screenshot-test-report.

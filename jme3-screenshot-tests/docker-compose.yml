@@ -1,0 +1,22 @@
+version: '3'
+services:
+  screenshot-tests:
+    image: ghcr.io/onemillionworlds/opengl-docker-image:v1
+    volumes:
+      - ..:/app
+    working_dir: /app
+    environment:
+      - DISPLAY=:99
+    command: >
+      bash -c '
+        Xvfb :99 -ac -screen 0 1024x768x16 &
+        sleep 2
+        glxinfo | grep "OpenGL" &&
+        sed -i "s/\r$$//" ./gradlew &&
+        chmod +x ./gradlew &&
+        od -c ./gradlew | head -n 10 &&
+        ./gradlew :jme3-screenshot-test:screenshotTest
+      '
+    # Ensure the container has access to the host's network
+    # This can help with some OpenGL/GPU related issues
+    network_mode: "host"
