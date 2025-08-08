@@ -53,7 +53,7 @@ jobs:
     name: Run Screenshot Tests
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/onemillionworlds/opengl-docker-image:v1
+      image: ghcr.io/richardtingle/opengl-docker-image:v5
     permissions:
       contents: read
     steps:
