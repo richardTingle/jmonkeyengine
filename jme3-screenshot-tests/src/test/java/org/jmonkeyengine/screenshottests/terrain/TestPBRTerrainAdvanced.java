@@ -55,10 +55,15 @@ import com.jme3.texture.Texture.MagFilter;
 import com.jme3.texture.Texture.MinFilter;
 import com.jme3.texture.TextureArray;
 import org.jmonkeyengine.screenshottests.testframework.ScreenshotTestBase;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Stream;
+
 
 /**
  * This test uses 'AdvancedPBRTerrain.j3md' to create a terrain Material with
@@ -95,17 +100,33 @@ import java.util.List;
 @SuppressWarnings("FieldCanBeLocal")
 public class TestPBRTerrainAdvanced extends ScreenshotTestBase {
 
+    private static Stream<Arguments> testParameters() {
+        return Stream.of(
+                Arguments.of("FinalRender", 0),
+                Arguments.of("AmbientOcclusion", 4),
+                Arguments.of("Emissive", 5)
+        );
+    }
+
     /**
      * Test advanced PBR terrain with different debug modes
      *
+     * @param testName The name of the test (used for screenshot filename)
+     * @param debugMode The debug mode to use
      */
-    @Test
-    public void testPBRTerrainAdvanced() {
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("testParameters")
+    public void testPBRTerrainAdvanced(String testName, int debugMode, TestInfo testInfo) {
+        if(!testInfo.getTestClass().isPresent() || !testInfo.getTestMethod().isPresent()) {
+            throw new RuntimeException("Test preconditions not met");
+        }
+
+        String imageName = testInfo.getTestClass().get().getName() + "." + testInfo.getTestMethod().get().getName() + "_" + testName;
 
         screenshotTest(new BaseAppState() {
             private TerrainQuad terrain;
             private Material matTerrain;
-            
+
             private final int terrainSize = 512;
             private final int patchSize = 256;
             private final float dirtScale = 24;
@@ -115,19 +136,22 @@ public class TestPBRTerrainAdvanced extends ScreenshotTestBase {
             private final float grassScale = 24;
             private final float marbleScale = 64;
             private final float gravelScale = 64;
-            
+
             private final ColorRGBA tilesEmissiveColor = new ColorRGBA(0.12f, 0.02f, 0.23f, 0.85f); //dim magenta emission
             private final ColorRGBA marbleEmissiveColor = new ColorRGBA(0.0f, 0.0f, 1.0f, 1.0f); //fully saturated blue emission
-            
+
             @Override
             protected void initialize(Application app) {
                 SimpleApplication simpleApp = (SimpleApplication) app;
                 AssetManager assetManager = app.getAssetManager();
-                
+
                 setUpTerrain(simpleApp, assetManager);
                 setUpTerrainMaterial(assetManager);
                 setUpLights(simpleApp, assetManager);
                 setUpCamera(app);
+
+                // Set debug mode
+                matTerrain.setInt("DebugValuesMode", debugMode);
             }
 
             private void setUpTerrainMaterial(AssetManager assetManager) {
@@ -207,7 +231,7 @@ public class TestPBRTerrainAdvanced extends ScreenshotTestBase {
                 setWrapAndMipMaps(albedoTextureArray);
                 setWrapAndMipMaps(normalParallaxTextureArray);
                 setWrapAndMipMaps(metallicRoughnessAoEiTextureArray);
-                
+
                 //assign texture array to materials
                 matTerrain.setParam("AlbedoTextureArray", VarType.TextureArray, albedoTextureArray);
                 matTerrain.setParam("NormalParallaxTextureArray", VarType.TextureArray, normalParallaxTextureArray);
@@ -337,7 +361,8 @@ public class TestPBRTerrainAdvanced extends ScreenshotTestBase {
             @Override
             protected void onDisable() {}
 
-        }).setFramesToTakeScreenshotsOn(5)
-          .run();
+        }).setBaseImageFileName(imageName)
+                .setFramesToTakeScreenshotsOn(5)
+                .run();
     }
 }
