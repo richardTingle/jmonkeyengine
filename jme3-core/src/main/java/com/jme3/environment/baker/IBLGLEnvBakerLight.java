@@ -43,6 +43,7 @@ import com.jme3.math.Vector2f;
 import com.jme3.math.Vector3f;
 import com.jme3.renderer.Caps;
 import com.jme3.renderer.RenderManager;
+import com.jme3.renderer.Renderer;
 import com.jme3.scene.Geometry;
 import com.jme3.scene.shape.Box;
 import com.jme3.texture.FrameBuffer;
@@ -95,6 +96,9 @@ public class IBLGLEnvBakerLight extends IBLHybridEnvBakerLight {
     @Override
     public void bakeSphericalHarmonicsCoefficients() {
         try {
+
+            logRendererCaps(renderManager, LOG);
+
             Box boxm = new Box(1, 1, 1);
             Geometry screen = new Geometry("BakeBox", boxm);
 
@@ -105,6 +109,12 @@ public class IBLGLEnvBakerLight extends IBLHybridEnvBakerLight {
 
             float remapMaxValue = 0;
             Format format = Format.RGBA32F;
+
+            boolean hasFloatRT = renderManager.getRenderer().getCaps().contains(Caps.FloatColorBufferRGBA);
+            LOG.info("Caps says FloatColorBufferRGBA=" + hasFloatRT);
+
+
+
             if (!renderManager.getRenderer().getCaps().contains(Caps.FloatColorBufferRGBA)) {
                 LOG.warning("Float textures not supported, using RGB8 instead. This may cause accuracy issues.");
                 format = Format.RGBA8;
@@ -145,6 +155,12 @@ public class IBLGLEnvBakerLight extends IBLHybridEnvBakerLight {
                 renderManager.setCamera(updateAndGetInternalCamera(0, shbaker[renderOnT].getWidth(), shbaker[renderOnT].getHeight(), Vector3f.ZERO, 1, 1000), false);
                 renderManager.getRenderer().setFrameBuffer(shbaker[renderOnT]);
                 renderManager.renderGeometry(screen);
+
+
+                LOG.info("rjt probe face " + faceId + " on T=" + renderOnT);
+                if (faceId < 2) {
+                    probeFboRead(renderManager.getRenderer(), shbaker[renderOnT], format, LOG, "probe face " + faceId);
+                }
             }
 
             ByteBuffer shCoefRaw = BufferUtils.createByteBuffer(NUM_SH_COEFFICIENT * 1 * (shbaker[renderOnT].getColorTarget().getFormat().getBitsPerPixel() / 8));
@@ -202,6 +218,60 @@ public class IBLGLEnvBakerLight extends IBLHybridEnvBakerLight {
             e.printStackTrace();
             // Fall back to the parent class's CPU-based implementation
             super.bakeSphericalHarmonicsCoefficients();
+        }
+    }
+
+    private static void logRendererCaps(RenderManager rm, Logger LOG) {
+        Renderer r = rm.getRenderer();
+        LOG.info("Renderer impl: " + r.getClass().getName());
+        LOG.info("Renderer caps: " + r.getCaps());
+
+        // Env that often matters in CI (safe to log; may be null)
+        LOG.info("ENV MESA_LOADER_DRIVER_OVERRIDE=" + System.getenv("MESA_LOADER_DRIVER_OVERRIDE"));
+        LOG.info("ENV GALLIUM_DRIVER=" + System.getenv("GALLIUM_DRIVER"));
+        LOG.info("ENV VK_ICD_FILENAMES=" + System.getenv("VK_ICD_FILENAMES"));
+        LOG.info("ENV LIBGL_ALWAYS_SOFTWARE=" + System.getenv("LIBGL_ALWAYS_SOFTWARE"));
+        LOG.info("ENV MESA_GL_VERSION_OVERRIDE=" + System.getenv("MESA_GL_VERSION_OVERRIDE"));
+        LOG.info("ENV MESA_GLSL_VERSION_OVERRIDE=" + System.getenv("MESA_GLSL_VERSION_OVERRIDE"));
+    }
+
+
+    /**
+     * Try to read back the FBO and dump the first pixel as floats/bytes.
+     * Works for both RGBA8 and RGBA32F. Won’t throw if sizes don’t match; it will log instead.
+     */
+    private static void probeFboRead(Renderer renderer, FrameBuffer fb, Format fmt, Logger LOG, String tag) {
+        int bpp = fmt.getBitsPerPixel();
+        int w = fb.getWidth(), h = fb.getHeight();
+        int expected = (w * h * bpp) / 8;
+
+        ByteBuffer buf = BufferUtils.createByteBuffer(expected);
+        try {
+            renderer.readFrameBufferWithFormat(fb, buf, fmt);
+            LOG.info(tag + " readFrameBuffer ok. cap=" + buf.capacity() + ", pos=" + buf.position() + ", fmt=" + fmt + ", bpp=" + bpp);
+            buf.rewind();
+
+            if (fmt == Format.RGBA32F) {
+                // Dump first pixel as floats
+                if (buf.remaining() >= 16) {
+                    float r = buf.getFloat();
+                    float g = buf.getFloat();
+                    float b = buf.getFloat();
+                    float a = buf.getFloat();
+                    LOG.info(tag + " firstPixel (RGBA32F): [" + r + ", " + g + ", " + b + ", " + a + "]");
+                }
+            } else {
+                // Dump first pixel as 4 unsigned bytes
+                if (buf.remaining() >= 4) {
+                    int r = buf.get() & 0xFF;
+                    int g = buf.get() & 0xFF;
+                    int b = buf.get() & 0xFF;
+                    int a = buf.get() & 0xFF;
+                    LOG.info(tag + " firstPixel (RGBA8): [" + r + ", " + g + ", " + b + ", " + a + "]");
+                }
+            }
+        } catch (Exception ex) {
+            LOG.warning(tag + " readFrameBuffer failed: " + ex.getMessage());
         }
     }
 }

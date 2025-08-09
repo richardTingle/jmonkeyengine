@@ -53,19 +53,25 @@ jobs:
     name: Run Screenshot Tests
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/richardtingle/opengl-docker-image:v5
+      image: ghcr.io/richardtingle/opengl-docker-image:v6
     permissions:
       contents: read
     steps:
     - uses: actions/checkout@v4
-    - name: Start xvfb
+    # - name: Start xvfb
+    #  run: |
+    #     Xvfb :99 -ac -screen 0 1024x768x16 &
+    #    export DISPLAY=:99
+    #    echo "DISPLAY=:99" >> $GITHUB_ENV
+    - name: Report GL/Vulkan
       run: |
-        Xvfb :99 -ac -screen 0 1024x768x16 &
-        export DISPLAY=:99
-        echo "DISPLAY=:99" >> $GITHUB_ENV
-    - name: Verify Mesa3D Installation
-      run: |
-        glxinfo | grep "OpenGL"
+        set -x
+        echo "DISPLAY=$DISPLAY"
+        glxinfo | grep -E "OpenGL version|OpenGL renderer|OpenGL vendor" || true
+        vulkaninfo --summary || true
+        echo "VK_ICD_FILENAMES=$VK_ICD_FILENAMES"
+        echo "MESA_LOADER_DRIVER_OVERRIDE=$MESA_LOADER_DRIVER_OVERRIDE"
+        echo "GALLIUM_DRIVER=$GALLIUM_DRIVER"
     - name: Validate the Gradle wrapper
       uses: gradle/actions/wrapper-validation@v3
     - name: Test with Gradle Wrapper
