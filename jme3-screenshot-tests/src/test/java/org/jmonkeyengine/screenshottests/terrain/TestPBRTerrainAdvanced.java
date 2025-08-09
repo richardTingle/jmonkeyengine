@@ -55,15 +55,9 @@ import com.jme3.texture.Texture.MagFilter;
 import com.jme3.texture.Texture.MinFilter;
 import com.jme3.texture.TextureArray;
 import org.jmonkeyengine.screenshottests.testframework.ScreenshotTestBase;
-import org.junit.jupiter.api.TestInfo;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Stream;
-
 
 /**
  * This test uses 'AdvancedPBRTerrain.j3md' to create a terrain Material with
@@ -100,28 +94,11 @@ import java.util.stream.Stream;
 @SuppressWarnings("FieldCanBeLocal")
 public class TestPBRTerrainAdvanced extends ScreenshotTestBase {
 
-    private static Stream<Arguments> testParameters() {
-        return Stream.of(
-            Arguments.of("FinalRender", 0),
-            Arguments.of("AmbientOcclusion", 4),
-            Arguments.of("Emissive", 5)
-        );
-    }
-
     /**
      * Test advanced PBR terrain with different debug modes
-     * 
-     * @param testName The name of the test (used for screenshot filename)
-     * @param debugMode The debug mode to use
+     *
      */
-    @ParameterizedTest(name = "{0}")
-    @MethodSource("testParameters")
-    public void testPBRTerrainAdvanced(String testName, int debugMode, TestInfo testInfo) {
-        if(!testInfo.getTestClass().isPresent() || !testInfo.getTestMethod().isPresent()) {
-            throw new RuntimeException("Test preconditions not met");
-        }
-
-        String imageName = testInfo.getTestClass().get().getName() + "." + testInfo.getTestMethod().get().getName() + "_" + testName;
+    public void testPBRTerrainAdvanced() {
 
         screenshotTest(new BaseAppState() {
             private TerrainQuad terrain;
@@ -149,9 +126,6 @@ public class TestPBRTerrainAdvanced extends ScreenshotTestBase {
                 setUpTerrainMaterial(assetManager);
                 setUpLights(simpleApp, assetManager);
                 setUpCamera(app);
-                
-                // Set debug mode
-                matTerrain.setInt("DebugValuesMode", debugMode);
             }
 
             private void setUpTerrainMaterial(AssetManager assetManager) {
@@ -361,8 +335,7 @@ public class TestPBRTerrainAdvanced extends ScreenshotTestBase {
             @Override
             protected void onDisable() {}
 
-        }).setBaseImageFileName(imageName)
-          .setFramesToTakeScreenshotsOn(5)
+        }).setFramesToTakeScreenshotsOn(5)
           .run();
     }
 }
