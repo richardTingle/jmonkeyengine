@@ -55,6 +55,7 @@ import com.jme3.texture.Texture.MagFilter;
 import com.jme3.texture.Texture.MinFilter;
 import com.jme3.texture.TextureArray;
 import org.jmonkeyengine.screenshottests.testframework.ScreenshotTestBase;
+import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -98,6 +99,7 @@ public class TestPBRTerrainAdvanced extends ScreenshotTestBase {
      * Test advanced PBR terrain with different debug modes
      *
      */
+    @Test
     public void testPBRTerrainAdvanced() {
 
         screenshotTest(new BaseAppState() {
