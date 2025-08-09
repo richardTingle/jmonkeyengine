@@ -53,16 +53,16 @@ jobs:
     name: Run Screenshot Tests
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/richardtingle/opengl-docker-image:v6
+      image: ghcr.io/richardtingle/opengl-docker-image:v7
     permissions:
       contents: read
     steps:
     - uses: actions/checkout@v4
-    # - name: Start xvfb
-    #  run: |
-    #     Xvfb :99 -ac -screen 0 1024x768x16 &
-    #    export DISPLAY=:99
-    #    echo "DISPLAY=:99" >> $GITHUB_ENV
+    - name: Start xvfb
+      run: |
+         Xvfb :99 -ac -screen 0 1024x768x16 &
+        export DISPLAY=:99
+        echo "DISPLAY=:99" >> $GITHUB_ENV
     - name: Report GL/Vulkan
       run: |
         set -x
