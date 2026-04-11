@@ -55,7 +55,6 @@ public class ExtentReportExtension implements BeforeAllCallback, AfterAllCallbac
     @Override
     public void beforeAll(ExtensionContext context) {
         if(extent==null){
-            fghhgj
             ExtentSparkReporter spark = new ExtentSparkReporter("build/reports/ScreenshotDiffReport.html");
             spark.config().setTheme(Theme.STANDARD);
             spark.config().setDocumentTitle("Screenshot Test Report");
