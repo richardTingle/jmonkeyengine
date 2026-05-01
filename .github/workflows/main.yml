@@ -84,7 +84,7 @@ jobs:
         uses: gradle/actions/wrapper-validation@v3
       - name: Test with Gradle Wrapper
         run: |
-          ./gradlew :jme3-screenshot-test:screenshotTest
+          ./gradlew :jme3-screenshot-test:screenshotTest --stacktrace
       - name: Upload Test Reports
         uses: actions/upload-artifact@master
         if: always()
