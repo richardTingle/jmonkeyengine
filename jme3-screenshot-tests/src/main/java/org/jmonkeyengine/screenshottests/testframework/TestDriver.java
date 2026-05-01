@@ -39,6 +39,8 @@ import com.jme3.app.state.BaseAppState;
 import com.jme3.math.FastMath;
 import com.jme3.system.AppSettings;
 import com.jme3.system.JmeContext;
+import com.jme3.texture.FrameBuffer;
+import com.jme3.texture.Image;
 
 import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
@@ -100,6 +102,8 @@ public class TestDriver extends BaseAppState{
 
     ScreenshotNoInputAppState screenshotAppState;
 
+    private FrameBuffer offBuffer;
+
     private CountDownLatch waitLatch;
 
     private final int tickToTerminateApp;
@@ -131,9 +135,24 @@ public class TestDriver extends BaseAppState{
             waitLatch.countDown();
         };
 
+        AppSettings settings = app.getContext().getSettings();
+        int width = settings.getWidth();
+        int height = settings.getHeight();
+
+        offBuffer = new FrameBuffer(width, height, 1);
+        offBuffer.setDepthBuffer(Image.Format.Depth);
+        offBuffer.setColorBuffer(Image.Format.RGBA8);
+
+        app.getRenderer().setMainFrameBufferOverride(offBuffer);
     }
 
-    @Override protected void cleanup(Application app){}
+    @Override protected void cleanup(Application app){
+        if (offBuffer != null) {
+            app.getRenderer().setMainFrameBufferOverride(null);
+            app.getRenderer().deleteFrameBuffer(offBuffer);
+            offBuffer = null;
+        }
+    }
 
     @Override protected void onEnable(){}
 
