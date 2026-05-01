@@ -140,8 +140,11 @@ public class TestDriver extends BaseAppState{
         int height = settings.getHeight();
 
         offBuffer = new FrameBuffer(width, height, 1);
-        offBuffer.setDepthBuffer(Image.Format.Depth);
-        offBuffer.setColorBuffer(Image.Format.RGBA8);
+
+        offBuffer.setDepthTarget(FrameBuffer.FrameBufferTarget.newTarget(Image.Format.Depth));
+        offBuffer.addColorTarget(FrameBuffer.FrameBufferTarget.newTarget(Image.Format.RGBA8));
+
+        offBuffer.setSrgb(app.getRenderer().isMainFrameBufferSrgb());
 
         app.getRenderer().setMainFrameBufferOverride(offBuffer);
     }
@@ -149,7 +152,6 @@ public class TestDriver extends BaseAppState{
     @Override protected void cleanup(Application app){
         if (offBuffer != null) {
             app.getRenderer().setMainFrameBufferOverride(null);
-            app.getRenderer().deleteFrameBuffer(offBuffer);
             offBuffer = null;
         }
     }
