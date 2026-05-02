@@ -63,7 +63,7 @@ public class SimpleGreyCube extends ScreenshotTestBase{
                         AssetManager assetManager = app.getAssetManager();
                         Node rootNode = ((SimpleApplication)app).getRootNode();
 
-                        Box box = new Box(3,3,3);
+                        Box box = new Box(1.5f,1.5f,1.5f);
                         Geometry g = new Geometry("box", box);
                         Material mat = new Material(assetManager,"Common/MatDefs/Misc/Unshaded.j3md");
                         mat.setColor("Color", new ColorRGBA(0.5f, 0.5f, 0.5f, 1.0f));
