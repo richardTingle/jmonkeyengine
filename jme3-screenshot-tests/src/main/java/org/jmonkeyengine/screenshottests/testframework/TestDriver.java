@@ -146,7 +146,9 @@ public class TestDriver extends BaseAppState{
         offBuffer.addColorTarget(FrameBuffer.FrameBufferTarget.newTarget(Image.Format.RGBA8));
 
         offBuffer.setSrgb(app.getRenderer().isMainFrameBufferSrgb());
-
+        if(!app.getRenderer().isMainFrameBufferSrgb()){
+            throw new RuntimeException("Test driver does not support non sRGB frame buffers");
+        }
         app.getRenderer().setMainFrameBufferOverride(offBuffer);
     }
 
