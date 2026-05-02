@@ -163,19 +163,24 @@ public class TestDriver extends BaseAppState{
         renderTexture = new Texture2D(width, height, Image.Format.RGBA8);
         renderTexture.setMinFilter(Texture.MinFilter.BilinearNearestMipMap);
         renderTexture.setMagFilter(Texture.MagFilter.Bilinear);
+
         offBuffer = new FrameBuffer(width, height, 1);
         offBuffer.setDepthTarget(FrameBuffer.FrameBufferTarget.newTarget(Image.Format.Depth));
         offBuffer.addColorTarget(FrameBuffer.FrameBufferTarget.newTarget(renderTexture));
         offBuffer.setSrgb(true);
 
         RenderManager renderManager = getApplication().getRenderManager();
-        offscreenView = renderManager.createMainView("OffscreenView", getApplication().getCamera());
+        //offscreenView = renderManager.createMainView("OffscreenView", getApplication().getCamera());
 
-        offscreenView.setOutputFrameBuffer(offBuffer);
-        offscreenView.setClearFlags(true, true, true);
-        offscreenView.attachScene(((SimpleApplication)getApplication()).getRootNode());
-        offscreenView.setBackgroundColor(ColorRGBA.Black);
+        //offscreenView.setOutputFrameBuffer(offBuffer);
+        //offscreenView.setClearFlags(true, true, true);
+        //offscreenView.attachScene(((SimpleApplication)getApplication()).getRootNode());
+        //offscreenView.setBackgroundColor(ColorRGBA.Black);
         offScreenshotAppState = new OffScreenshotAppState(renderTexture, offBuffer);
+
+        app.getRenderer().setMainFrameBufferOverride(offBuffer);
+
+
         getStateManager().attach(offScreenshotAppState);
     }
 
