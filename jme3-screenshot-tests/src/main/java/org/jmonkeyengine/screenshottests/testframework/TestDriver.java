@@ -36,11 +36,16 @@ import com.jme3.app.Application;
 import com.jme3.app.SimpleApplication;
 import com.jme3.app.state.AppState;
 import com.jme3.app.state.BaseAppState;
+import com.jme3.math.ColorRGBA;
 import com.jme3.math.FastMath;
+import com.jme3.renderer.RenderManager;
+import com.jme3.renderer.ViewPort;
 import com.jme3.system.AppSettings;
 import com.jme3.system.JmeContext;
 import com.jme3.texture.FrameBuffer;
 import com.jme3.texture.Image;
+import com.jme3.texture.Texture;
+import com.jme3.texture.Texture2D;
 
 import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
@@ -105,9 +110,15 @@ public class TestDriver extends BaseAppState{
 
     private FrameBuffer offBuffer;
 
+    private ViewPort offscreenView;
+
+    private Texture2D renderTexture;
+
     private CountDownLatch waitLatch;
 
     private final int tickToTerminateApp;
+
+    OffScreenshotAppState offScreenshotAppState;
 
     public TestDriver(ScreenshotNoInputAppState screenshotAppState, Collection<Integer> framesToTakeScreenshotsOn){
         this.screenshotAppState = screenshotAppState;
@@ -121,6 +132,7 @@ public class TestDriver extends BaseAppState{
 
         if(framesToTakeScreenshotsOn.contains(tick)){
             screenshotAppState.takeScreenshot();
+            offScreenshotAppState.takeScreenshot();
         }
         if(tick >= tickToTerminateApp){
             getApplication().stop(true);
@@ -139,24 +151,36 @@ public class TestDriver extends BaseAppState{
         AppSettings settings = app.getContext().getSettings();
         int width = settings.getWidth();
         int height = settings.getHeight();
-
+        renderTexture = new Texture2D(width, height, Image.Format.RGBA8);
+        renderTexture.setMinFilter(Texture.MinFilter.BilinearNearestMipMap);
+        renderTexture.setMagFilter(Texture.MagFilter.Bilinear);
         offBuffer = new FrameBuffer(width, height, 1);
-
         offBuffer.setDepthTarget(FrameBuffer.FrameBufferTarget.newTarget(Image.Format.Depth));
-        offBuffer.addColorTarget(FrameBuffer.FrameBufferTarget.newTarget(Image.Format.RGBA8));
+        offBuffer.addColorTarget(FrameBuffer.FrameBufferTarget.newTarget(renderTexture));
+        offBuffer.setSrgb(true);
 
-        offBuffer.setSrgb(app.getRenderer().isMainFrameBufferSrgb());
-        if(!app.getRenderer().isMainFrameBufferSrgb()){
-            throw new RuntimeException("Test driver does not support non sRGB frame buffers");
-        }
-        app.getRenderer().setMainFrameBufferOverride(offBuffer);
+        RenderManager renderManager = getApplication().getRenderManager();
+        offscreenView = renderManager.createMainView("OffscreenView", getApplication().getCamera());
+
+        offscreenView.setOutputFrameBuffer(offBuffer);
+        offscreenView.setClearFlags(true, true, true);
+        offscreenView.attachScene(((SimpleApplication)getApplication()).getRootNode());
+        offscreenView.setBackgroundColor(ColorRGBA.Black);
+        offScreenshotAppState = new OffScreenshotAppState(renderTexture, offBuffer);
+        getStateManager().attach(offScreenshotAppState);
+    }
+
+    @Override
+    public void render(RenderManager rm) {
+        super.render(rm);
     }
 
     @Override protected void cleanup(Application app){
-        if (offBuffer != null) {
-            app.getRenderer().setMainFrameBufferOverride(null);
-            offBuffer = null;
+        if (offscreenView != null) {
+            RenderManager renderManager = getApplication().getRenderManager();
+            renderManager.removeMainView(offscreenView);
         }
+
     }
 
     @Override protected void onEnable(){}
