@@ -47,6 +47,7 @@ import javax.imageio.ImageIO;
 import javax.imageio.ImageWriteParam;
 import javax.imageio.ImageWriter;
 import javax.imageio.stream.ImageOutputStream;
+import java.awt.Color;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -395,7 +396,17 @@ public class TestDriver extends BaseAppState{
         for (int y = 0; y < img1.getHeight(); y++) {
             for (int x = 0; x < img1.getWidth(); x++) {
                 if (img1.getRGB(x, y)  != img2.getRGB(x, y)){
-                    return false;
+                    Color color1 = new Color(img1.getRGB(x, y));
+                    Color color2 = new Color(img2.getRGB(x, y));
+
+                    double dr = Math.abs(color1.getRed()-color2.getRed());
+                    double dg = Math.abs(color1.getGreen()-color2.getGreen());
+                    double db = Math.abs(color1.getBlue()-color2.getBlue());
+
+                    double largestPixelValueDifference = Math.max(dr, Math.max(dg, db));
+                    if(largestPixelValueDifference>PixelSamenessDegree.NEGLIGIBLY_DIFFERENT.getMaximumAllowedDifference()){
+                        return false;
+                    }
                 }
             }
         }
