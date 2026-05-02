@@ -110,8 +110,6 @@ public class TestDriver extends BaseAppState{
 
     private FrameBuffer offBuffer;
 
-    private ViewPort offscreenView;
-
     private Texture2D renderTexture;
 
     private CountDownLatch waitLatch;
@@ -169,13 +167,6 @@ public class TestDriver extends BaseAppState{
         offBuffer.addColorTarget(FrameBuffer.FrameBufferTarget.newTarget(renderTexture));
         offBuffer.setSrgb(true);
 
-        RenderManager renderManager = getApplication().getRenderManager();
-        //offscreenView = renderManager.createMainView("OffscreenView", getApplication().getCamera());
-
-        //offscreenView.setOutputFrameBuffer(offBuffer);
-        //offscreenView.setClearFlags(true, true, true);
-        //offscreenView.attachScene(((SimpleApplication)getApplication()).getRootNode());
-        //offscreenView.setBackgroundColor(ColorRGBA.Black);
         offScreenshotAppState = new OffScreenshotAppState(renderTexture, offBuffer);
 
         app.getRenderer().setMainFrameBufferOverride(offBuffer);
@@ -189,13 +180,7 @@ public class TestDriver extends BaseAppState{
         super.render(rm);
     }
 
-    @Override protected void cleanup(Application app){
-        if (offscreenView != null) {
-            RenderManager renderManager = getApplication().getRenderManager();
-            renderManager.removeMainView(offscreenView);
-        }
-
-    }
+    @Override protected void cleanup(Application app){}
 
     @Override protected void onEnable(){}
 
