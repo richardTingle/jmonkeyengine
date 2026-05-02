@@ -17,8 +17,10 @@ import com.jme3.util.BufferUtils;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.file.Path;
+import java.util.Optional;
 
-public class OffScreenshotAppState extends AbstractAppState implements SceneProcessor {
+public class OffScreenshotAppState extends AbstractAppState{
 
     Texture2D renderTexture;
 
@@ -26,12 +28,12 @@ public class OffScreenshotAppState extends AbstractAppState implements SceneProc
 
     FrameBuffer frameBuffer;
 
-    private boolean capture = false;
+    private Optional<Path> capture = Optional.empty();
 
     ByteBuffer outBuf;
 
-    public void takeScreenshot() {
-        capture = true;
+    public void takeScreenshot(Path pathToSaveTo) {
+        capture = Optional.of(pathToSaveTo);
     }
 
     public OffScreenshotAppState(Texture2D renderTexture, FrameBuffer frameBuffer) {
@@ -47,49 +49,21 @@ public class OffScreenshotAppState extends AbstractAppState implements SceneProc
     }
 
     @Override
-    public void initialize(RenderManager rm, ViewPort vp) {
-
-    }
-
-    @Override
-    public void reshape(ViewPort vp, int w, int h) {
-
-    }
-
-    @Override
-    public void preFrame(float tpf) {
-
-    }
-
-    @Override
-    public void postQueue(RenderQueue rq) {
-
-    }
-
-    @Override
     public void postRender() {
         super.postRender();
-        if (capture) {
-            capture = false;
+        if (capture.isPresent()) {
 
             renderer.readFrameBuffer(frameBuffer, outBuf);
             try {
-                FileOutputStream fileOutBuf = new FileOutputStream("C:\\Users\\richa\\Documents\\test.png");
+                FileOutputStream fileOutBuf = new FileOutputStream(capture.get().toFile());
                 JmeSystem.writeImageFile(fileOutBuf, "png",outBuf, renderTexture.getImage().getWidth(), renderTexture.getImage().getHeight());
             }catch (IOException e) {
                 throw new RuntimeException(e);
             }
+            capture = Optional.empty();
         }
     }
 
-    @Override
-    public void postFrame(FrameBuffer out) {
-int a=0;
-    }
 
-    @Override
-    public void setProfiler(AppProfiler profiler) {
-
-    }
 
 }

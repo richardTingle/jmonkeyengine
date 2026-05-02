@@ -64,7 +64,9 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
@@ -106,8 +108,6 @@ public class TestDriver extends BaseAppState{
 
     Collection<Integer> framesToTakeScreenshotsOn;
 
-    ScreenshotNoInputAppState screenshotAppState;
-
     private FrameBuffer offBuffer;
 
     private ViewPort offscreenView;
@@ -120,10 +120,12 @@ public class TestDriver extends BaseAppState{
 
     OffScreenshotAppState offScreenshotAppState;
 
-    public TestDriver(ScreenshotNoInputAppState screenshotAppState, Collection<Integer> framesToTakeScreenshotsOn){
-        this.screenshotAppState = screenshotAppState;
+    Map<Integer, Path> screenshotsAtFrames = new HashMap<>();
+
+    public TestDriver( Collection<Integer> framesToTakeScreenshotsOn){
         this.framesToTakeScreenshotsOn = framesToTakeScreenshotsOn;
         this.tickToTerminateApp = framesToTakeScreenshotsOn.stream().mapToInt(i -> i).max().orElse(0) + 1;
+
     }
 
     @Override
@@ -131,8 +133,15 @@ public class TestDriver extends BaseAppState{
         super.update(tpf);
 
         if(framesToTakeScreenshotsOn.contains(tick)){
-            screenshotAppState.takeScreenshot();
-            offScreenshotAppState.takeScreenshot();
+            Path screenshotPath = null;
+            try {
+                screenshotPath = Files.createTempFile("screenshot_" + tick + "_", ".tmp");
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+            screenshotPath.toFile().deleteOnExit();
+            screenshotsAtFrames.put(tick, screenshotPath);
+            offScreenshotAppState.takeScreenshot(screenshotPath);
         }
         if(tick >= tickToTerminateApp){
             getApplication().stop(true);
@@ -197,21 +206,8 @@ public class TestDriver extends BaseAppState{
         FastMath.rand.setSeed(0); //try to make things deterministic by setting the random seed
         Collections.sort(framesToTakeScreenshotsOn);
 
-        Path imageTempDir;
-
-        try{
-            imageTempDir = Files.createTempDirectory("jmeSnapshotTest");
-        } catch(IOException e){
-            throw new RuntimeException(e);
-        }
-
-        ScreenshotNoInputAppState screenshotAppState = new ScreenshotNoInputAppState(imageTempDir.toString() + "/");
-        String screenshotAppFileNamePrefix = "Screenshot-";
-        screenshotAppState.setFileName(screenshotAppFileNamePrefix);
-
         List<AppState> states = new ArrayList<>(Arrays.asList(initialStates));
-        TestDriver testDriver = new TestDriver(screenshotAppState, framesToTakeScreenshotsOn);
-        states.add(screenshotAppState);
+        TestDriver testDriver = new TestDriver(framesToTakeScreenshotsOn);
         states.add(testDriver);
 
         SimpleApplication app = new App(states.toArray(new AppState[0]));
@@ -237,42 +233,24 @@ public class TestDriver extends BaseAppState{
             throw new RuntimeException(e);
         }
 
-        //search the imageTempDir
-        List<Path> imageFiles = new ArrayList<>();
-        try(Stream<Path> paths = Files.list(imageTempDir)){
-            paths.forEach(imageFiles::add);
-        } catch(IOException e){
-            throw new RuntimeException(e);
-        }
 
-        //this resorts with natural numeric ordering (so App10.png comes after App9.png)
-        imageFiles.sort(new Comparator<Path>(){
-            @Override
-            public int compare(Path p1, Path p2){
-                return extractNumber(p1).compareTo(extractNumber(p2));
-            }
-
-            private Integer extractNumber(Path path){
-                String name = path.getFileName().toString();
-                int numStart = screenshotAppFileNamePrefix.length();
-                int numEnd = name.lastIndexOf(".png");
-                return Integer.parseInt(name.substring(numStart, numEnd));
-            }
-        });
-
-        if(imageFiles.isEmpty()){
+        if(testDriver.screenshotsAtFrames.isEmpty()){
             fail("No screenshot found in the temporary directory. Did the application crash?");
         }
-        if(imageFiles.size() != framesToTakeScreenshotsOn.size()){
-            fail("Not all screenshots were taken, expected " + framesToTakeScreenshotsOn.size() + " but got " + imageFiles.size());
+        if(testDriver.screenshotsAtFrames.size() != framesToTakeScreenshotsOn.size()){
+            fail("Not all screenshots were taken, expected " + framesToTakeScreenshotsOn.size() + " but got " + testDriver.screenshotsAtFrames.size());
         }
 
         String failureMessage = null;
 
         try {
-            for(int screenshotIndex=0;screenshotIndex<framesToTakeScreenshotsOn.size();screenshotIndex++){
-                Path generatedImage = imageFiles.get(screenshotIndex);
-                int frame = framesToTakeScreenshotsOn.get(screenshotIndex);
+            for(int frame: framesToTakeScreenshotsOn){
+                Path generatedImage = testDriver.screenshotsAtFrames.get(frame);
+
+                if(!Files.exists(generatedImage)){
+                    fail("No screenshot found at " + generatedImage + ". Did the application crash?");
+                }
+
 
                 String thisFrameBaseImageFileName = baseImageFileName + "_f" + frame;
 
@@ -327,8 +305,6 @@ public class TestDriver extends BaseAppState{
             }
         } catch (IOException e) {
             throw new RuntimeException("Error reading images", e);
-        } finally{
-            clearTemporaryFolder(imageTempDir);
         }
 
         if(failureMessage!=null){
@@ -336,20 +312,6 @@ public class TestDriver extends BaseAppState{
         }
     }
 
-    private static void clearTemporaryFolder(Path temporaryFolder){
-        try (Stream<Path> paths = Files.walk(temporaryFolder)) {
-            paths.sorted((a, b) -> b.getNameCount() - a.getNameCount())
-                    .forEach(path -> {
-                        try {
-                            Files.delete(path);
-                        } catch (IOException e) {
-                            throw new RuntimeException(e);
-                        }
-                    });
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-    }
 
     /**
      * Saves the image with the exact file name it needs to go into the resources directory to be a new reference image

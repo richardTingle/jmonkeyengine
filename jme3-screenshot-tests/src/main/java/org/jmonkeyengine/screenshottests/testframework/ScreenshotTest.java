@@ -97,7 +97,7 @@ public class ScreenshotTest{
         settings.setResolution(resolution.getWidth(), resolution.getHeight());
         settings.setAudioRenderer(null); // Disable audio (for headless)
         settings.setUseInput(false); //while it will run with inputs on it causes non-fatal errors.
-
+        settings.setGammaCorrection(false);
         String imageFilePrefix = baseImageFileName == null ? calculateImageFilePrefix() : baseImageFileName;
 
         TestDriver.bootAppForTest(testType,settings,imageFilePrefix, framesToTakeScreenshotsOn, states);
