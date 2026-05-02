@@ -3,12 +3,7 @@ package org.jmonkeyengine.screenshottests.testframework;
 import com.jme3.app.Application;
 import com.jme3.app.state.AbstractAppState;
 import com.jme3.app.state.AppStateManager;
-import com.jme3.post.SceneProcessor;
-import com.jme3.profile.AppProfiler;
-import com.jme3.renderer.RenderManager;
 import com.jme3.renderer.Renderer;
-import com.jme3.renderer.ViewPort;
-import com.jme3.renderer.queue.RenderQueue;
 import com.jme3.system.JmeSystem;
 import com.jme3.texture.FrameBuffer;
 import com.jme3.texture.Texture2D;
@@ -22,15 +17,12 @@ import java.util.Optional;
 
 public class OffScreenshotAppState extends AbstractAppState{
 
-    Texture2D renderTexture;
-
-    Renderer renderer;
-
-    FrameBuffer frameBuffer;
-
+    private Texture2D renderTexture;
+    private Renderer renderer;
+    private FrameBuffer frameBuffer;
     private Optional<Path> capture = Optional.empty();
 
-    ByteBuffer outBuf;
+    private ByteBuffer outBuf;
 
     public void takeScreenshot(Path pathToSaveTo) {
         capture = Optional.of(pathToSaveTo);
