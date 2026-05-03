@@ -43,6 +43,7 @@ import com.jme3.texture.FrameBuffer;
 import com.jme3.texture.Image;
 import com.jme3.texture.Texture;
 import com.jme3.texture.Texture2D;
+import com.jme3.texture.image.ColorSpace;
 
 import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
@@ -145,11 +146,13 @@ public class TestDriver extends BaseAppState{
         Texture2D renderTexture = new Texture2D(width, height, Image.Format.RGBA8);
         renderTexture.setMinFilter(Texture.MinFilter.BilinearNearestMipMap);
         renderTexture.setMagFilter(Texture.MagFilter.Bilinear);
+        renderTexture.getImage().setColorSpace(ColorSpace.sRGB);
 
         FrameBuffer offBuffer = new FrameBuffer(width, height, 1);
+        offBuffer.setSrgb(true);
         offBuffer.setDepthTarget(FrameBuffer.FrameBufferTarget.newTarget(Image.Format.Depth));
         offBuffer.addColorTarget(FrameBuffer.FrameBufferTarget.newTarget(renderTexture));
-        offBuffer.setSrgb(true);
+
 
         app.getRenderer().setMainFrameBufferOverride(offBuffer);
 
