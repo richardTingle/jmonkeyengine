@@ -120,24 +120,26 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v6
-      - name: Start xvfb
+      - name: Validate the Gradle wrapper
+        uses: gradle/actions/wrapper-validation@v6.1.0
+
+      - name: Start xvfb, debug, and run tests
         run: |
-          Xvfb :99 -ac -screen 0 1024x768x16 &
+          Xvfb :99 -ac -screen 0 1024x768x24/4 &
           export DISPLAY=:99
           echo "DISPLAY=:99" >> $GITHUB_ENV
-      - name: Report GL/Vulkan
-        run: |
+          
+          # Debug GL/Vulkan
           set -x
           echo "DISPLAY=$DISPLAY"
-          glxinfo | grep -E "OpenGL version|OpenGL renderer|OpenGL vendor" || true
+          glxinfo | grep -E "OpenGL version|OpenGL renderer|OpenGL vendor|visual|GLX version" || true
           vulkaninfo --summary || true
           echo "VK_ICD_FILENAMES=$VK_ICD_FILENAMES"
           echo "MESA_LOADER_DRIVER_OVERRIDE=$MESA_LOADER_DRIVER_OVERRIDE"
           echo "GALLIUM_DRIVER=$GALLIUM_DRIVER"
-      - name: Validate the Gradle wrapper
-        uses: gradle/actions/wrapper-validation@v6.1.0
-      - name: Test with Gradle Wrapper
-        run: |
+          echo "LIBGL_ALWAYS_SOFTWARE=$LIBGL_ALWAYS_SOFTWARE"
+          
+          # Run tests
           ./gradlew :jme3-screenshot-test:screenshotTest
       - name: Upload Test Reports
         uses: actions/upload-artifact@v7.0.0
