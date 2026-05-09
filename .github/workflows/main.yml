@@ -125,7 +125,7 @@ jobs:
 
       - name: Start xvfb, debug, and run tests
         run: |
-          Xvfb :99 -ac -screen 0 1024x768x24 -depth 24 -cc 4 &
+          Xvfb :99 -ac -screen 0 1024x768x24/4 &
           export DISPLAY=:99
           echo "DISPLAY=:99" >> $GITHUB_ENV
           
