@@ -134,8 +134,9 @@ public class AndroidRunner implements AppRunner {
 
     @Override
     public void saveGeneratedImageToChangedImages(Image generatedImage, String fileName) {
+        Image rgbaImage = TestReportCaptureBase.ensureRGBA8(generatedImage);
         try (OutputStream out = getPersistentFileOutputStream("changed-images/" + fileName)) {
-            JmeSystem.writeImageFile(out, "png",generatedImage.getData(0), generatedImage.getWidth(), generatedImage.getHeight());
+            JmeSystem.writeImageFile(out, "png",rgbaImage.getData(0), rgbaImage.getWidth(), rgbaImage.getHeight());
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

@@ -42,6 +42,7 @@ import com.jme3.math.ColorRGBA;
 import com.jme3.math.FastMath;
 import com.jme3.system.AppSettings;
 import com.jme3.texture.Image;
+import com.jme3.texture.image.ImageRaster;
 import com.jme3.texture.plugins.StbImageLoader;
 
 import com.jme3.texture.image.DefaultImageRaster;
@@ -381,8 +382,8 @@ public class ScreenshotTest{
      * Different sizes are so fatal that they will immediately fail the test.
      */
     private static boolean imagesAreVerySimilar(Image img1, Image img2) {
-        DefaultImageRaster image1Wrapper = new DefaultImageRaster(img1, 0, 0, false);
-        DefaultImageRaster image2Wrapper = new DefaultImageRaster(img2, 0, 0, false);
+        ImageRaster image1Wrapper = DefaultImageRaster.create(img1);
+        ImageRaster image2Wrapper = DefaultImageRaster.create(img2);
 
         ColorRGBA color1 = new ColorRGBA();
         ColorRGBA color2 = new ColorRGBA();
@@ -414,9 +415,9 @@ public class ScreenshotTest{
     private static Image createComparisonImage(Image img1, Image img2) {
         ByteBuffer buffer = ByteBuffer.allocateDirect(img1.getWidth() * img1.getHeight() * 4);
         Image comparisonImageResource = new Image(Image.Format.RGBA8, img1.getWidth(), img1.getHeight(), buffer, img1.getColorSpace());
-        DefaultImageRaster comparisonImage = new DefaultImageRaster(comparisonImageResource, 0, 0, false);
-        DefaultImageRaster image1Wrapped = new DefaultImageRaster(img1, 0, 0, false);
-        DefaultImageRaster image2Wrapped = new DefaultImageRaster(img2, 0, 0, false);
+        ImageRaster comparisonImage = DefaultImageRaster.create(comparisonImageResource);
+        ImageRaster image1Wrapped = DefaultImageRaster.create(img1);
+        ImageRaster image2Wrapped = DefaultImageRaster.create(img2);
 
         ColorRGBA color1 = new ColorRGBA();
         ColorRGBA color2 = new ColorRGBA();
@@ -444,7 +445,7 @@ public class ScreenshotTest{
     /**
      * This produces the almost grey ghost of the original image, used when the differences are being highlighted
      */
-    public static int getWashedOutPixel(DefaultImageRaster img, int x, int y, float alpha) {
+    public static int getWashedOutPixel(ImageRaster img, int x, int y, float alpha) {
         // Get the raw pixel value
         ColorRGBA color = img.getPixel(x, y, null);
         int rgb = color.asIntARGB();
