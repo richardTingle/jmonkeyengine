@@ -42,7 +42,7 @@ import android.view.ViewGroup;
 import androidx.fragment.app.Fragment;
 import com.jme3.audio.AudioRenderer;
 import com.jme3.input.JoyInput;
-import com.jme3.input.android.AndroidSensorJoyInput;
+import com.jme3.input.android.AndroidJoyInput;
 import com.jme3.system.AppSettings;
 import com.jme3.system.SystemListener;
 import com.jme3.system.android.JmeAndroidSystem;
@@ -66,6 +66,7 @@ import java.util.logging.Logger;
  */
 public abstract class AndroidHarnessFragment extends Fragment implements SystemListener {
     private static final Logger logger = Logger.getLogger(AndroidHarnessFragment.class.getName());
+    private static final String SAFER_BUFFER_ALLOCATOR_CLASS = "com.jme3.util.SaferBufferAllocator";
 
     protected GLSurfaceView view;
     protected LegacyApplication app;
@@ -90,18 +91,16 @@ public abstract class AndroidHarnessFragment extends Fragment implements SystemL
         logger.fine("onCreate");
         super.onCreate(savedInstanceState);
 
-        System.setProperty(
-                BufferAllocatorFactory.PROPERTY_BUFFER_ALLOCATOR_IMPLEMENTATION,
-                AndroidNativeBufferAllocator.class.getName());
+        if (System.getProperty(BufferAllocatorFactory.PROPERTY_BUFFER_ALLOCATOR_IMPLEMENTATION) == null) {
+            String allocator = isClassPresent(SAFER_BUFFER_ALLOCATOR_CLASS)
+                    ? SAFER_BUFFER_ALLOCATOR_CLASS
+                    : AndroidNativeBufferAllocator.class.getName();
+            System.setProperty(BufferAllocatorFactory.PROPERTY_BUFFER_ALLOCATOR_IMPLEMENTATION, allocator);
+        }
 
         try {
             app = createApplication();
-
-            AppSettings settings = createSettings();
-            configureSettings(settings);
-            app.setSettings(settings);
             app.start();
-
             OGLESContext context = (OGLESContext) app.getContext();
             context.setSystemListener(this);
         } catch (Exception exception) {
@@ -117,25 +116,15 @@ public abstract class AndroidHarnessFragment extends Fragment implements SystemL
      */
     protected abstract LegacyApplication createApplication() throws Exception;
 
-    /**
-     * Creates the default Android settings. Subclasses can override this when
-     * they need to replace the settings object rather than adjust it.
-     *
-     * @return default settings for Android
-     */
-    protected AppSettings createSettings() {
-        AppSettings settings = new AppSettings(true);
-        settings.setAudioRenderer(AppSettings.ANDROID_OPENAL_SOFT);
-        return settings;
+    private static boolean isClassPresent(String className) {
+        try {
+            Class.forName(className, false, AndroidHarnessFragment.class.getClassLoader());
+            return true;
+        } catch (Throwable ignored) {
+            return false;
+        }
     }
 
-    /**
-     * Customizes the settings before the application starts.
-     *
-     * @param settings the settings to customize
-     */
-    protected void configureSettings(AppSettings settings) {
-    }
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
@@ -250,6 +239,11 @@ public abstract class AndroidHarnessFragment extends Fragment implements SystemL
     }
 
     @Override
+    public void reshape(int logicalWidth, int logicalHeight, int framebufferWidth, int framebufferHeight) {
+        app.reshape(logicalWidth, logicalHeight, framebufferWidth, framebufferHeight);
+    }
+
+    @Override
     public void rescale(float x, float y) {
         app.rescale(x, y);
     }
@@ -288,8 +282,8 @@ public abstract class AndroidHarnessFragment extends Fragment implements SystemL
             }
 
             JoyInput joyInput = app.getContext() != null ? app.getContext().getJoyInput() : null;
-            if (joyInput instanceof AndroidSensorJoyInput) {
-                ((AndroidSensorJoyInput) joyInput).resumeSensors();
+            if (joyInput instanceof AndroidJoyInput) {
+                ((AndroidJoyInput) joyInput).resumeJoysticks();
             }
 
             app.gainFocus();
@@ -314,8 +308,8 @@ public abstract class AndroidHarnessFragment extends Fragment implements SystemL
             }
 
             JoyInput joyInput = app.getContext() != null ? app.getContext().getJoyInput() : null;
-            if (joyInput instanceof AndroidSensorJoyInput) {
-                ((AndroidSensorJoyInput) joyInput).pauseSensors();
+            if (joyInput instanceof AndroidJoyInput) {
+                ((AndroidJoyInput) joyInput).pauseJoysticks();
             }
         }
     }
