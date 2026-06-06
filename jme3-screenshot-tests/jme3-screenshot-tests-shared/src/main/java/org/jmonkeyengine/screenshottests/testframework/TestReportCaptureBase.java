@@ -60,14 +60,9 @@ public abstract class TestReportCaptureBase {
     public abstract void attachImageInner(String title, String fileName, Image image);
 
     public static Image ensureRGBA8(Image image) {
-        Image correctImage;
-        if(image.getFormat()!= Image.Format.RGBA8){
-            correctImage = convertToRGBA8(image);
-        } else{
-            correctImage = image;
-        }
-        correctImage.getData(0).rewind();
-        return correctImage;
+        Image rgbaImage = convertToRGBA8(image);
+        rgbaImage.getData(0).rewind();
+        return rgbaImage;
     }
 
     private static Image convertToRGBA8(Image rgbImage) {
