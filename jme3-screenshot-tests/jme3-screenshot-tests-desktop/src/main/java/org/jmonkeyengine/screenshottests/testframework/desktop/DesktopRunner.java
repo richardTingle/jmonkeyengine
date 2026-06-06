@@ -42,11 +42,9 @@ import org.junit.jupiter.api.Assertions;
 
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
@@ -106,7 +104,7 @@ public class DesktopRunner implements AppRunner {
 
     @Override
     public void saveGeneratedImageToChangedImages(Image generatedImage, String fileName) {
-        Image rgbaImage = TestReportCaptureBase.ensureRGBA8(generatedImage);
+        Image rgbaImage = TestReportCaptureBase.convertToRGBA8(generatedImage);
 
         Path savedImage = getChangedImagesDirectory().resolve(fileName);
         try {
