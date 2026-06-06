@@ -37,6 +37,7 @@ import com.jme3.texture.image.ColorSpace;
 import com.jme3.texture.image.ImageRaster;
 
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 
 /**
  * This creates the Extent report and manages the test lifecycle
@@ -60,7 +61,16 @@ public abstract class TestReportCaptureBase {
     public abstract void attachImageInner(String title, String fileName, Image image);
 
     public static Image convertToRGBA8(Image image) {
+        if (image.getFormat() == Image.Format.RGBA8
+                && image.getColorSpace() == ColorSpace.sRGB
+                && image.getData(0).order() == ByteOrder.LITTLE_ENDIAN
+        ){
+            image.getData(0).rewind();
+            return image;
+        }
+
         ByteBuffer byteBuffer = ByteBuffer.allocateDirect(4*image.getWidth() * image.getHeight());
+        byteBuffer.order(ByteOrder.LITTLE_ENDIAN);
         Image rgbaImage = new Image(Image.Format.RGBA8, image.getWidth(), image.getHeight(), byteBuffer, null, ColorSpace.sRGB);
         ImageRaster source = ImageRaster.create(image);
         ImageRaster target = ImageRaster.create(rgbaImage);
@@ -73,6 +83,7 @@ public abstract class TestReportCaptureBase {
                 target.setPixel(x, y, color);
             }
         }
+
         rgbaImage.getData(0).rewind();
         return rgbaImage;
     }
