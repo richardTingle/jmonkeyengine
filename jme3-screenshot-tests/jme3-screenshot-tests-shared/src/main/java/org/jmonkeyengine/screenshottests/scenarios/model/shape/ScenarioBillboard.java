@@ -70,7 +70,7 @@ public class ScenarioBillboard {
                 rootNode.attachChild(grid);
 
                 // Create billboards with different alignments
-                Node node = createBillboard(simpleApplication, BillboardControl.Alignment.Screen, ColorRGBA.Red);
+                Node node = createBillboard(simpleApplication, BillboardControl.Alignment.Screen, ColorRGBA.Magenta);
                 node.setLocalTranslation(-6f, 0, 0);
                 rootNode.attachChild(node);
 
